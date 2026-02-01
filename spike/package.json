@@ -1,0 +1,16 @@
+{
+  "name": "atv-scheduler-spike",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Technical spike to validate ATV-Scheduler-CLI feasibility",
+  "scripts": {
+    "test:install": "node 01-test-install.mjs",
+    "test:connect": "node 02-test-connect.mjs",
+    "test:shell": "node 03-test-shell.mjs",
+    "test:youtube": "node 04-test-youtube.mjs",
+    "test:all": "npm run test:install && npm run test:connect && npm run test:shell && npm run test:youtube"
+  },
+  "dependencies": {
+    "@devicefarmer/adbkit": "^3.2.6"
+  }
+}
