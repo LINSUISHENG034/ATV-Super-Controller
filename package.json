@@ -1,0 +1,37 @@
+{
+  "name": "atv-super-controller",
+  "version": "1.0.0",
+  "description": "Android TV scheduler and controller - automate your Android TV over LAN via ADB TCP",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "atv-controller": "./src/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js start",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "android-tv",
+    "adb",
+    "scheduler",
+    "automation",
+    "cli"
+  ],
+  "author": "Link",
+  "license": "MIT",
+  "dependencies": {
+    "@devicefarmer/adbkit": "^3.3.8",
+    "ajv": "^8.17.1",
+    "commander": "^14.0.3",
+    "node-schedule": "^2.1.1",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  }
+}
