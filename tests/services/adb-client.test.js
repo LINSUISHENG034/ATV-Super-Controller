@@ -170,6 +170,30 @@ describe('ADB Client Service', () => {
     });
   });
 
+  describe('getDevice()', () => {
+    it('should return null when not connected', () => {
+      const device = adbClient.getDevice();
+      expect(device).toBeNull();
+    });
+
+    it('should return device object when connected', async () => {
+      await adbClient.connect('192.168.1.100', 5555);
+
+      const device = adbClient.getDevice();
+
+      expect(device).toBeDefined();
+      expect(device.id).toBe('192.168.1.100:5555');
+    });
+
+    it('should return device with shell method', async () => {
+      await adbClient.connect('192.168.1.100', 5555);
+
+      const device = adbClient.getDevice();
+
+      expect(typeof device.shell).toBe('function');
+    });
+  });
+
   describe('Health Check - AC1 (Story 1.5)', () => {
     describe('startHealthCheck()', () => {
       it('should start periodic heartbeat checks', async () => {

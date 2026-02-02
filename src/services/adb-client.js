@@ -102,6 +102,17 @@ function getDeviceInfo() {
 }
 
 /**
+ * Get the current device object for action execution
+ * @returns {object|null} Device object with shell() method or null if not connected
+ */
+function getDevice() {
+  if (!connected || !currentDevice) {
+    return null;
+  }
+  return currentDevice;
+}
+
+/**
  * Start health check with periodic heartbeat
  * @param {number} intervalMs - Heartbeat interval in milliseconds (default 5000)
  */
@@ -188,4 +199,4 @@ function stopReconnect() {
   reconnecting = false;
 }
 
-export { connect, disconnect, getConnectionStatus, getDeviceInfo, startHealthCheck, stopHealthCheck, reconnect, stopReconnect };
+export { connect, disconnect, getConnectionStatus, getDeviceInfo, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect };
