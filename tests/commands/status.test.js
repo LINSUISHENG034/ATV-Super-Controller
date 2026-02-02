@@ -5,7 +5,11 @@ vi.mock('../../src/services/adb-client.js', () => ({
   connect: vi.fn(),
   disconnect: vi.fn(),
   getConnectionStatus: vi.fn(),
-  getDeviceInfo: vi.fn()
+  getDeviceInfo: vi.fn(),
+  startHealthCheck: vi.fn(),
+  stopHealthCheck: vi.fn(),
+  reconnect: vi.fn(),
+  stopReconnect: vi.fn()
 }));
 
 // Mock config module
@@ -107,5 +111,68 @@ describe('Status Command - AC3', () => {
     const exitCode = await statusCommand();
 
     expect(exitCode).toBe(1);
+  });
+
+  describe('Reconnecting State Display - Story 1.5 AC1, AC2', () => {
+    it('should show "Reconnecting" when in reconnecting state', async () => {
+      config.loadConfig.mockResolvedValue({
+        device: { ip: '192.168.1.100', port: 5555 }
+      });
+      adbClient.connect.mockResolvedValue({ connected: true });
+      adbClient.getConnectionStatus.mockReturnValue({
+        connected: false,
+        reconnecting: true,
+        device: null,
+        reconnectAttempt: 3,
+        lastConnectedAt: new Date('2026-02-02T10:00:00')
+      });
+
+      await statusCommand();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Reconnecting')
+      );
+    });
+
+    it('should show reconnection attempt count', async () => {
+      config.loadConfig.mockResolvedValue({
+        device: { ip: '192.168.1.100', port: 5555 }
+      });
+      adbClient.connect.mockResolvedValue({ connected: true });
+      adbClient.getConnectionStatus.mockReturnValue({
+        connected: false,
+        reconnecting: true,
+        device: null,
+        reconnectAttempt: 5,
+        lastConnectedAt: new Date()
+      });
+
+      await statusCommand();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('5')
+      );
+    });
+
+    it('should show last connected time', async () => {
+      config.loadConfig.mockResolvedValue({
+        device: { ip: '192.168.1.100', port: 5555 }
+      });
+      adbClient.connect.mockResolvedValue({ connected: true });
+      adbClient.getConnectionStatus.mockReturnValue({
+        connected: true,
+        reconnecting: false,
+        device: '192.168.1.100:5555',
+        reconnectAttempt: 0,
+        lastConnectedAt: new Date('2026-02-02T10:30:00')
+      });
+      adbClient.getDeviceInfo.mockReturnValue({ id: '192.168.1.100:5555' });
+
+      await statusCommand();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Last Connected')
+      );
+    });
   });
 });

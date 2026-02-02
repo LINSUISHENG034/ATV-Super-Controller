@@ -10,6 +10,14 @@ const Adb = AdbKit.Adb;
 let client = null;
 let connected = false;
 let currentDevice = null;
+let currentIp = null;
+let currentPort = null;
+let healthCheckInterval = null;
+let reconnecting = false;
+let reconnectAttempt = 0;
+let lastConnectedAt = null;
+
+const BACKOFF_DELAYS = [0, 1000, 2000, 4000, 8000, 16000, 30000];
 
 /**
  * Connect to Android TV device via ADB over TCP
@@ -27,7 +35,10 @@ async function connect(ip, port = 5555) {
     await client.connect(target);
 
     currentDevice = client.getDevice(target);
+    currentIp = ip;
+    currentPort = port;
     connected = true;
+    lastConnectedAt = new Date();
 
     logger.info(`Connected to device ${target}`);
     return { connected: true, device: currentDevice };
@@ -59,6 +70,8 @@ async function disconnect() {
   }
   connected = false;
   currentDevice = null;
+  currentIp = null;
+  currentPort = null;
 }
 
 /**
@@ -68,7 +81,10 @@ async function disconnect() {
 function getConnectionStatus() {
   return {
     connected,
-    device: currentDevice ? currentDevice.id : null
+    reconnecting,
+    device: currentDevice ? currentDevice.id : null,
+    reconnectAttempt: reconnecting ? reconnectAttempt + 1 : 0,
+    lastConnectedAt
   };
 }
 
@@ -85,4 +101,91 @@ function getDeviceInfo() {
   };
 }
 
-export { connect, disconnect, getConnectionStatus, getDeviceInfo };
+/**
+ * Start health check with periodic heartbeat
+ * @param {number} intervalMs - Heartbeat interval in milliseconds (default 5000)
+ */
+function startHealthCheck(intervalMs = 5000) {
+  stopHealthCheck();
+
+  healthCheckInterval = setInterval(async () => {
+    if (!currentDevice) return;
+
+    try {
+      await currentDevice.shell('echo ping');
+    } catch (error) {
+      logger.warn('Connection lost, attempting reconnect...', { error: error.message });
+      stopHealthCheck();
+      reconnect(currentIp, currentPort); // Pass stored connection details
+    }
+  }, intervalMs);
+}
+
+/**
+ * Stop the health check interval
+ */
+function stopHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+}
+
+/**
+ * Sleep for specified milliseconds
+ * @param {number} ms - Milliseconds to sleep
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Reconnect to device with exponential backoff
+ * @returns {Promise<{success: boolean}>}
+ */
+async function reconnect() {
+  reconnecting = true;
+  reconnectAttempt = 0;
+
+  while (reconnecting) {
+    const delay = BACKOFF_DELAYS[Math.min(reconnectAttempt, BACKOFF_DELAYS.length - 1)];
+    const delaySeconds = delay / 1000;
+
+    logger.warn(`Reconnection attempt ${reconnectAttempt + 1}, waiting ${delaySeconds}s...`, {
+      attempt: reconnectAttempt + 1,
+      delay: delaySeconds
+    });
+
+    await sleep(delay);
+
+    if (!reconnecting) break;
+
+    try {
+      const target = `${currentIp}:${currentPort}`;
+      await client.connect(target);
+      currentDevice = client.getDevice(target);
+      connected = true;
+      lastConnectedAt = new Date();
+      reconnecting = false;
+      reconnectAttempt = 0;
+      logger.info(`Reconnected to device ${target}`);
+      startHealthCheck();
+      return { success: true };
+    } catch (error) {
+      reconnectAttempt++;
+      logger.error(`Reconnect failed: ${error.message}`);
+    }
+  }
+
+  return { success: false };
+}
+
+/**
+ * Stop ongoing reconnection attempts
+ */
+function stopReconnect() {
+  reconnecting = false;
+}
+
+export { connect, disconnect, getConnectionStatus, getDeviceInfo, startHealthCheck, stopHealthCheck, reconnect, stopReconnect };

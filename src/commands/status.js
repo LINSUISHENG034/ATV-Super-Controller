@@ -20,17 +20,33 @@ export async function statusCommand() {
       const status = getConnectionStatus();
       const deviceInfo = getDeviceInfo();
 
-      console.log(`Status: Connected`);
+      if (status.reconnecting) {
+        console.log(`Status: Reconnecting`);
+        console.log(`Attempt: ${status.reconnectAttempt}`);
+      } else {
+        console.log(`Status: Connected`);
+      }
+
       console.log(`Device: ${status.device}`);
 
       if (deviceInfo) {
         console.log(`Device ID: ${deviceInfo.id}`);
       }
 
+      if (status.lastConnectedAt) {
+        console.log(`Last Connected: ${status.lastConnectedAt.toISOString()}`);
+      }
+
       return 0;
     } else {
-      console.log(`Status: Disconnected`);
-      console.log(`Error: ${result.error?.message || 'Unknown error'}`);
+      const status = getConnectionStatus();
+      if (status.reconnecting) {
+        console.log(`Status: Reconnecting`);
+        console.log(`Attempt: ${status.reconnectAttempt}`);
+      } else {
+        console.log(`Status: Disconnected`);
+        console.log(`Error: ${result.error?.message || 'Unknown error'}`);
+      }
       return 1;
     }
   } catch (error) {
