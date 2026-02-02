@@ -7,17 +7,19 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { logger } from './logger.js';
+
+import { readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load schema once at module initialization
 const schemaPath = join(__dirname, '../../schemas/config.schema.json');
-import { readFileSync } from 'fs';
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
 
 // Initialize ajv with formats support
-const ajv = new Ajv({ allErrors: true });
+const ajv = new Ajv({ allErrors: true, verbose: true });
 addFormats(ajv);
 const validate = ajv.compile(schema);
 
@@ -67,4 +69,31 @@ function validateConfig(config) {
   return { valid: false, errors };
 }
 
-export { loadConfigFile, validateConfig };
+/**
+ * Load configuration with environment variable support
+ * Resolves config path from ATV_CONFIG_PATH or defaults to ./config.json
+ * Applies device overrides from ATV_DEVICE_IP and ATV_DEVICE_PORT
+ * @param {string} [filePath] - Optional specific config file path to load
+ * @returns {object} Loaded and merged configuration object
+ */
+async function loadConfig(filePath) {
+  const configPath = filePath || process.env.ATV_CONFIG_PATH || './config.json';
+  logger.debug(`Loading configuration from ${configPath}`);
+
+  const config = await loadConfigFile(configPath);
+
+  if (process.env.ATV_DEVICE_IP) {
+    config.device.ip = process.env.ATV_DEVICE_IP;
+    logger.debug(`Device IP overridden to ${config.device.ip}`);
+  }
+
+  if (process.env.ATV_DEVICE_PORT) {
+    config.device.port = parseInt(process.env.ATV_DEVICE_PORT, 10);
+    logger.debug(`Device port overridden to ${config.device.port}`);
+  }
+
+  logger.debug('Configuration loaded from config.json');
+  return config;
+}
+
+export { loadConfigFile, validateConfig, loadConfig };

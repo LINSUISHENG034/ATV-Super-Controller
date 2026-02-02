@@ -1,7 +1,8 @@
 /**
  * Validate command - validates configuration file against JSON Schema
  */
-import { loadConfigFile, validateConfig } from '../utils/config.js';
+import { loadConfig, validateConfig } from '../utils/config.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Execute validate command
@@ -13,34 +14,33 @@ export async function validateCommand(options) {
 
   try {
     // Load config file
-    const config = await loadConfigFile(configPath);
+    const config = await loadConfig(configPath);
 
     // Validate against schema
     const result = validateConfig(config);
 
     if (result.valid) {
-      console.log('✓ Configuration is valid');
-      console.log(`  Device: ${config.device.ip}:${config.device.port}`);
-      console.log(`  Tasks: ${config.tasks.length} task(s) configured`);
+      logger.info('Configuration is valid');
+      logger.info(`Device: ${config.device.ip}:${config.device.port}`);
+      logger.info(`Tasks: ${config.tasks.length} task(s) configured`);
       process.exitCode = 0;
     } else {
-      console.log('✗ Configuration validation failed\n');
+      logger.error('Configuration validation failed');
       for (const error of result.errors) {
-        console.log(`  ${error.path || '/'}: ${error.message}`);
+        logger.error(`${error.path || '/'}: ${error.message}`);
         if (error.value !== undefined) {
-          console.log(`    Value: ${JSON.stringify(error.value)}`);
+          logger.debug(`Value: ${JSON.stringify(error.value)}`);
         }
-        console.log('');
       }
       process.exitCode = 1;
     }
   } catch (error) {
     if (error.code === 'CONFIG_NOT_FOUND') {
-      console.log(`✗ ${error.message}`);
+      logger.error(error.message);
     } else if (error.code === 'CONFIG_PARSE_ERROR') {
-      console.log(`✗ ${error.message}`);
+      logger.error(error.message);
     } else {
-      console.log(`✗ Unexpected error: ${error.message}`);
+      logger.error(`Unexpected error: ${error.message}`);
     }
     process.exitCode = 1;
   }

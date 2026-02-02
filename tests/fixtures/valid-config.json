@@ -1,0 +1,15 @@
+{
+  "device": {
+    "ip": "192.168.1.100",
+    "port": 5555
+  },
+  "tasks": [
+    {
+      "name": "test-task",
+      "schedule": "0 0 * * *",
+      "actions": [
+        { "type": "wake" }
+      ]
+    }
+  ]
+}

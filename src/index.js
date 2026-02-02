@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { logger } from './utils/logger.js';
 import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { testCommand } from './commands/test.js';
 import { validateCommand } from './commands/validate.js';
+
+logger.debug('CLI initializing');
 
 const program = new Command();
 
@@ -30,7 +33,7 @@ program
 program
   .command('validate')
   .description('Validate configuration file')
-  .option('-c, --config <path>', 'Path to config file', './config.json')
+  .option('-c, --config <path>', 'Path to config file')
   .action(validateCommand);
 
 program.parse(process.argv);
