@@ -1,19 +1,29 @@
 {
+  "_comment": "ATV Controller Configuration - Copy to config.json and customize",
   "device": {
+    "_comment": "Android TV device connection settings",
     "ip": "192.168.1.100",
     "port": 5555
   },
   "tasks": [
     {
-      "name": "morning-news",
+      "_comment": "Example task: Morning routine with all action types demonstrated",
+      "name": "morning-routine",
       "schedule": "0 30 7 * * *",
       "actions": [
-        { "type": "wake" },
-        { "type": "wait", "duration": 5000 },
-        {
-          "type": "play-video",
-          "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-        }
+        { "type": "wake", "_comment": "Wake up the device from sleep" },
+        { "type": "wait", "duration": 5000, "_comment": "Wait 5 seconds for device to boot" },
+        { "type": "launch-app", "package": "com.google.android.youtube.tv", "_comment": "Launch YouTube app" },
+        { "type": "wait", "duration": 2000 },
+        { "type": "play-video", "url": "https://www.youtube.com/watch?v=VIDEO_ID", "_comment": "Play a specific video" }
+      ]
+    },
+    {
+      "_comment": "Example task: Shutdown at night",
+      "name": "night-shutdown",
+      "schedule": "0 0 23 * * *",
+      "actions": [
+        { "type": "shutdown", "_comment": "Power off the device" }
       ]
     }
   ]

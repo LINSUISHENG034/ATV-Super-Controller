@@ -30,6 +30,7 @@ program
 program
   .command('validate')
   .description('Validate configuration file')
+  .option('-c, --config <path>', 'Path to config file', './config.json')
   .action(validateCommand);
 
 program.parse(process.argv);

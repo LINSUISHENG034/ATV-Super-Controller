@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "config.schema.json",
+  "title": "ATV Controller Configuration",
+  "type": "object",
+  "required": ["device", "tasks"],
+  "additionalProperties": false,
+  "properties": {
+    "_comment": { "type": "string" },
+    "device": {
+      "type": "object",
+      "required": ["ip", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "ip": { "type": "string", "format": "ipv4" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/task" }
+    }
+  },
+  "definitions": {
+    "task": {
+      "type": "object",
+      "required": ["name", "schedule", "actions"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "name": { "type": "string", "minLength": 1 },
+        "schedule": { "type": "string" },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/action" }
+        }
+      }
+    },
+    "action": {
+      "oneOf": [
+        { "$ref": "#/definitions/wakeAction" },
+        { "$ref": "#/definitions/waitAction" },
+        { "$ref": "#/definitions/playVideoAction" },
+        { "$ref": "#/definitions/launchAppAction" },
+        { "$ref": "#/definitions/shutdownAction" }
+      ]
+    },
+    "wakeAction": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "wake" }
+      }
+    },
+    "waitAction": {
+      "type": "object",
+      "required": ["type", "duration"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "wait" },
+        "duration": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "playVideoAction": {
+      "type": "object",
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "play-video" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "launchAppAction": {
+      "type": "object",
+      "required": ["type", "package"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "launch-app" },
+        "package": { "type": "string" },
+        "activity": { "type": "string" }
+      }
+    },
+    "shutdownAction": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "shutdown" }
+      }
+    }
+  }
+}
