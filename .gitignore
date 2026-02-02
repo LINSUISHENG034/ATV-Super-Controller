@@ -4,10 +4,13 @@
 .claude/
 _bmad/
 _bamd-output/
-docs/prompts/
 
 # Spike
 spike/node_modules/
 
 # Logs
 *.log
+
+# Docs
+docs/prompts/
+init/

@@ -4,108 +4,67 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ATV-Scheduler-CLI is a Node.js command-line tool for automating Android TV control over LAN via ADB TCP. The primary use case is scheduling wake-up and YouTube playback at specified times (e.g., morning news at 7:30 AM), but it supports arbitrary shell commands and intents via configuration.
+ATV-Super-Controller is a Node.js CLI tool for automating Android TV control over LAN via ADB TCP.
 
 **Current Status:** Technical spike completed. Core implementation pending.
 
-## Technical Stack
+## Documentation (Single Source of Truth)
 
-- **Runtime:** Node.js 18+ with ES Modules (`"type": "module"`)
-- **ADB Library:** `@devicefarmer/adbkit` (NOT `adb-kit` - the original package is deprecated)
-- **Scheduling:** `node-schedule` (planned)
-- **Logging:** `winston` (planned)
-- **Deployment:** Docker (planned)
+| Document | Purpose |
+|----------|---------|
+| [`_bmad-output/project-context.md`](_bmad-output/project-context.md) | **AI Agent Rules** - Critical implementation patterns |
+| [`_bmad-output/planning-artifacts/architecture.md`](_bmad-output/planning-artifacts/architecture.md) | Architecture decisions & project structure |
+| [`_bmad-output/planning-artifacts/prd.md`](_bmad-output/planning-artifacts/prd.md) | Product requirements (19 FRs, 8 NFRs) |
+| [`docs/memory/2026-02-01.md`](docs/memory/2026-02-01.md) | Technical spike lessons learned |
 
-## Critical Technical Notes
+**IMPORTANT:** Always read `project-context.md` before implementing code.
 
-### adb-kit Import Pattern
+## Quick Reference
 
-The `@devicefarmer/adbkit` module has a specific structure that differs from documentation:
+### Critical ADB Patterns (from project-context.md)
 
 ```javascript
-// CORRECT
+// Import pattern - MUST use nested structure
 import AdbKit from '@devicefarmer/adbkit';
 const Adb = AdbKit.Adb;
-const client = Adb.createClient();
 
-// WRONG - will fail
-import Adb from '@devicefarmer/adbkit';
-const client = Adb.createClient();
+// Device API - shell() is on device, NOT client
+const device = client.getDevice('ip:port');
+await device.shell('command');
 ```
 
-### Device API Pattern
-
-Shell commands use a two-step device object pattern:
-
-```javascript
-// CORRECT
-const device = client.getDevice('192.168.0.145:5555');
-const stream = await device.shell('echo hello');
-
-// WRONG - shell() is not on client
-await client.shell('192.168.0.145:5555', 'echo hello');
-```
-
-### YouTube Launch Method
-
-Use VIEW intent for reliability across devices (avoids hardcoding Activity names):
-
-```bash
-am start -a android.intent.action.VIEW -d "https://www.youtube.com/watch?v=VIDEO_ID"
-```
-
-## Commands
-
-### Spike Tests (validation)
+### Spike Tests
 
 ```bash
 cd spike
 npm install
-npm run test:install    # Verify adb-kit works
-npm run test:connect    # Test ADB TCP connection
-npm run test:shell      # Test shell command execution
-npm run test:youtube    # Test YouTube TV launch
-npm run test:all        # Run all tests in sequence
+npm run test:all    # Run all validation tests
 ```
 
 Configure device IP in `spike/config.mjs` before running.
 
 ## Project Structure
 
-```
-spike/                   # Technical validation (pre-implementation)
-  ├── config.mjs         # Device IP/port configuration
-  ├── 01-test-*.mjs      # Numbered test scripts (run in order)
-  └── CHECKLIST.md       # Spike validation checklist
+See [`architecture.md`](_bmad-output/planning-artifacts/architecture.md) for complete structure.
 
-docs/
-  ├── init-prd.md        # Product requirements (Chinese)
-  ├── specification/     # Technical specifications
-  └── memory/            # Development notes and lessons learned
+```
+src/
+├── commands/     # CLI command handlers
+├── services/     # Core business logic
+├── actions/      # Strategy pattern implementations
+└── utils/        # Config, logger, errors
 ```
 
 ## Git Workflow
 
-- **Branches:** `main`, `develop`, `feature/*`, `fix/*`, `docs/*`, `refactor/*`, `test/*`
-- **Commit format:** `<type>(<scope>): <subject>` (e.g., `feat(scheduler): add cron parsing`)
+See [`docs/specification/git-workflow.md`](docs/specification/git-workflow.md) for details.
+
+- **Commit format:** `<type>(<scope>): <subject>`
 - **Types:** feat, fix, docs, style, refactor, test, chore
 - Never mention AI tools in commit messages
 
-## Configuration File Design (Planned)
+## Configuration Schema
 
-```json
-{
-  "device": { "ip": "192.168.x.x", "port": 5555 },
-  "tasks": [
-    {
-      "name": "Morning News",
-      "cron": "0 30 7 * * *",
-      "actions": [
-        { "type": "wake_up" },
-        { "type": "wait", "ms": 5000 },
-        { "type": "launch_app", "package": "...", "data_uri": "..." }
-      ]
-    }
-  ]
-}
-```
+See [`architecture.md`](_bmad-output/planning-artifacts/architecture.md) for full schema.
+
+Environment variables: `ATV_DEVICE_IP`, `ATV_DEVICE_PORT`, `ATV_LOG_LEVEL`, `ATV_CONFIG_PATH`
