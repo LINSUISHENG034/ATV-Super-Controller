@@ -69,9 +69,10 @@ async function retryWithBackoff(fn, maxRetries = MAX_RETRIES, initialDelay = INI
  * Execute a task's action chain
  * @param {object} task - Task with actions array
  * @param {object} device - ADB device object
+ * @param {object} [context={}] - Context object with config (e.g., { youtube: {...} })
  * @returns {{success: boolean, status: 'completed'|'failed', results: Array<{action: string, success: boolean, duration: number, retryCount?: number}>, duration: number, error?: string, failedAtIndex?: number, failedAction?: string}} Execution result with status, duration, and action results
  */
-async function executeTask(task, device) {
+async function executeTask(task, device, context = {}) {
   const startTime = Date.now();
   logger.info(`Executing task: ${task.name}`);
 
@@ -101,7 +102,7 @@ async function executeTask(task, device) {
     const actionStart = Date.now();
 
     try {
-      const { result, retryCount } = await retryWithBackoff(() => action.execute(device, actionDef));
+      const { result, retryCount } = await retryWithBackoff(() => action.execute(device, actionDef, context));
 
       if (!result.success) {
         throw new Error(result.error || 'Action returned failure');

@@ -20,6 +20,23 @@
     "tasks": {
       "type": "array",
       "items": { "$ref": "#/definitions/task" }
+    },
+    "youtube": {
+      "type": "object",
+      "description": "Optional: Custom YouTube client configuration (e.g., SmartTube)",
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "package": { 
+          "type": "string",
+          "description": "Package name of the YouTube client app"
+        },
+        "activity": { 
+          "type": "string",
+          "description": "Activity to launch for video playback"
+        }
+      },
+      "required": ["package", "activity"]
     }
   },
   "definitions": {

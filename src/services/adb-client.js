@@ -10,6 +10,7 @@ const Adb = AdbKit.Adb;
 let client = null;
 let connected = false;
 let currentDevice = null;
+let currentTarget = null;
 let currentIp = null;
 let currentPort = null;
 let healthCheckInterval = null;
@@ -35,6 +36,7 @@ async function connect(ip, port = 5555) {
     await client.connect(target);
 
     currentDevice = client.getDevice(target);
+    currentTarget = target;
     currentIp = ip;
     currentPort = port;
     connected = true;
@@ -59,17 +61,17 @@ async function connect(ip, port = 5555) {
  * Disconnect from the current device
  */
 async function disconnect() {
-  if (currentDevice && client) {
+  if (currentTarget && client) {
     try {
-      const target = currentDevice.id;
-      await client.disconnect(target);
-      logger.info(`Disconnected from device ${target}`);
+      await client.disconnect(currentTarget);
+      logger.info(`Disconnected from device ${currentTarget}`);
     } catch (error) {
       logger.warn('Error during disconnect', { reason: error.message });
     }
   }
   connected = false;
   currentDevice = null;
+  currentTarget = null;
   currentIp = null;
   currentPort = null;
 }
@@ -82,7 +84,7 @@ function getConnectionStatus() {
   return {
     connected,
     reconnecting,
-    device: currentDevice ? currentDevice.id : null,
+    device: currentTarget,
     reconnectAttempt: reconnecting ? reconnectAttempt + 1 : 0,
     lastConnectedAt
   };
@@ -97,7 +99,7 @@ function getDeviceInfo() {
     return null;
   }
   return {
-    id: currentDevice.id
+    id: currentTarget
   };
 }
 

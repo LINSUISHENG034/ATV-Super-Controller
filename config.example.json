@@ -26,5 +26,10 @@
         { "type": "shutdown", "_comment": "Power off the device" }
       ]
     }
-  ]
+  ],
+  "youtube": {
+    "_comment": "Optional: Configure third-party YouTube client (e.g., SmartTube). Remove this section if using official YouTube TV.",
+    "package": "com.teamsmart.videomanager.tv",
+    "activity": "com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity"
+  }
 }

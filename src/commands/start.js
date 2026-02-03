@@ -40,9 +40,14 @@ export async function startCommand() {
     // Get device for task execution
     const device = getDevice();
 
+    // Build context for actions (e.g., play-video needs youtube config)
+    const context = {
+      youtube: config.youtube
+    };
+
     // Task executor callback
     const executor = async (task) => {
-      const result = await executeTask(task, device);
+      const result = await executeTask(task, device, context);
       updateTaskStatus(task.name, result);
     };
 

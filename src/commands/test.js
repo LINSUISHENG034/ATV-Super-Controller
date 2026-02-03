@@ -52,7 +52,7 @@ export async function testCommand(name, options) {
 
   // 4. Build params from options
   if (options.url) params.url = options.url;
-  if (options.app) params.app = options.app;
+  if (options.app) params.package = options.app;
 
   // 5. Connect to device
   const result = await connect(config.device.ip, config.device.port);
@@ -65,9 +65,14 @@ export async function testCommand(name, options) {
   const device = getDevice();
   logger.info(`Executing action: ${action.name}`, { params });
 
+  // Build context for actions that need config (e.g., play-video needs youtube config)
+  const context = {
+    youtube: config.youtube
+  };
+
   let actionResult;
   try {
-    actionResult = await action.execute(device, params);
+    actionResult = await action.execute(device, params, context);
   } finally {
     await disconnect();
   }

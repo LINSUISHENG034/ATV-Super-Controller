@@ -62,7 +62,7 @@ describe('Test Command', () => {
 
       expect(getAction).toHaveBeenCalledWith('wake-up');
       expect(connect).toHaveBeenCalledWith('192.168.0.145', 5555);
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, {});
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, {}, { youtube: undefined });
       expect(disconnect).toHaveBeenCalled();
       expect(mockExit).toHaveBeenCalledWith(0);
     });
@@ -80,7 +80,7 @@ describe('Test Command', () => {
       await expect(testCommand('shutdown', {})).rejects.toThrow('process.exit called');
 
       expect(getAction).toHaveBeenCalledWith('shutdown');
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, {});
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, {}, { youtube: undefined });
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 
@@ -133,7 +133,7 @@ describe('Test Command', () => {
 
       await expect(testCommand('play-video', { url: 'https://youtube.com/watch?v=test' })).rejects.toThrow('process.exit called');
 
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { url: 'https://youtube.com/watch?v=test' });
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { url: 'https://youtube.com/watch?v=test' }, { youtube: undefined });
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 
@@ -149,7 +149,7 @@ describe('Test Command', () => {
 
       await expect(testCommand('launch-app', { app: 'com.google.android.youtube.tv' })).rejects.toThrow('process.exit called');
 
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { app: 'com.google.android.youtube.tv' });
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { package: 'com.google.android.youtube.tv' }, { youtube: undefined });
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 
@@ -177,7 +177,7 @@ describe('Test Command', () => {
 
       expect(getAction).toHaveBeenCalledWith('morning-youtube');
       expect(getAction).toHaveBeenCalledWith('play-video');
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'play-video', url: 'https://youtube.com/watch?v=morning' });
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'play-video', url: 'https://youtube.com/watch?v=morning' }, { youtube: undefined });
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 

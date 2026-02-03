@@ -39,7 +39,8 @@ describe('Wake-Up Action', () => {
     // Mock stream
     mockStream = { id: 'mock-stream' };
     
-    // Default behavior: Dumpsys returns Asleep, then Wakeup command works
+    // Default behavior: Dumpsys returns Asleep initially, then Awake after wake
+    let callCount = 0;
     mockDevice.shell.mockImplementation((cmd) => {
       if (cmd.includes('dumpsys')) {
         return Promise.resolve(mockStream);
@@ -47,9 +48,13 @@ describe('Wake-Up Action', () => {
       return Promise.resolve(mockStream); // Input command also returns a stream usually
     });
 
-    // Default readAll behavior: Return 'Asleep' for dumpsys
+    // Default readAll behavior: First returns 'Asleep', then 'Awake' for verification
     AdbKit.Adb.util.readAll.mockImplementation((stream) => {
-      return Promise.resolve(Buffer.from('mWakefulness=Asleep'));
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve(Buffer.from('mWakefulness=Asleep'));
+      }
+      return Promise.resolve(Buffer.from('mWakefulness=Awake'));
     });
   });
 
@@ -64,18 +69,19 @@ describe('Wake-Up Action', () => {
   });
 
   describe('execute', () => {
-    it('should send KEYCODE_WAKEUP command when device is asleep', async () => {
+    it('should send KEYCODE_POWER command when device is asleep', async () => {
       const result = await wakeUpAction.execute(mockDevice, {});
 
       // Should check status first
       expect(mockDevice.shell).toHaveBeenCalledWith('dumpsys power | grep mWakefulness=');
-      // Then send wakeup
-      expect(mockDevice.shell).toHaveBeenCalledWith('input keyevent KEYCODE_WAKEUP');
+      // Then send wakeup using KEYCODE_POWER
+      expect(mockDevice.shell).toHaveBeenCalledWith('input keyevent KEYCODE_POWER');
       expect(result.success).toBe(true);
-      expect(result.data.keycode).toBe('KEYCODE_WAKEUP');
+      expect(result.data.keycode).toBe('KEYCODE_POWER');
+      expect(result.data.verified).toBe(true);
     });
 
-    it('should NOT send KEYCODE_WAKEUP if device is already awake', async () => {
+    it('should NOT send KEYCODE_POWER if device is already awake', async () => {
       // Setup mock to return Awake
       AdbKit.Adb.util.readAll.mockResolvedValue(Buffer.from('mWakefulness=Awake'));
 
@@ -84,7 +90,7 @@ describe('Wake-Up Action', () => {
       // Should check status
       expect(mockDevice.shell).toHaveBeenCalledWith('dumpsys power | grep mWakefulness=');
       // Should NOT send wakeup
-      expect(mockDevice.shell).not.toHaveBeenCalledWith('input keyevent KEYCODE_WAKEUP');
+      expect(mockDevice.shell).not.toHaveBeenCalledWith('input keyevent KEYCODE_POWER');
       
       expect(result.success).toBe(true);
       expect(result.message).toBe('Device already awake');

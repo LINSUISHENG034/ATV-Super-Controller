@@ -154,8 +154,8 @@ describe('executor service', () => {
       expect(result.success).toBe(true);
       expect(mockAction.execute).toHaveBeenCalledTimes(2);
       // Verify device is passed correctly to each action
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'wake' });
-      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'launch-app', package: 'com.example' });
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'wake' }, {});
+      expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'launch-app', package: 'com.example' }, {});
       expect(logger.info).toHaveBeenCalledWith("Task 'test-task' completed successfully");
     });
 

@@ -56,8 +56,9 @@ function normalizeYouTubeUrl(url, videoId) {
 
 const playVideoAction = {
   name: 'play-video',
-  async execute(device, params) {
+  async execute(device, params, context = {}) {
     const { url, videoId } = params;
+    const youtubeConfig = context.youtube;
 
     // Normalize and validate URL
     const videoUrl = normalizeYouTubeUrl(url, videoId);
@@ -70,12 +71,25 @@ const playVideoAction = {
     }
 
     try {
-      // Use VIEW intent
-      // Security: videoUrl is validated to be a URL/ID and checked for quotes
-      await device.shell(`am start -a android.intent.action.VIEW -d "${videoUrl}"`);
+      let command;
+      
+      // If youtube client configured, use explicit component
+      if (youtubeConfig?.package && youtubeConfig?.activity) {
+        const component = `${youtubeConfig.package}/${youtubeConfig.activity}`;
+        command = `am start -a android.intent.action.VIEW -d "${videoUrl}" -n ${component}`;
+        logger.debug('Using configured YouTube client', { package: youtubeConfig.package });
+      } else {
+        // Default: generic VIEW intent (works for official YouTube TV)
+        command = `am start -a android.intent.action.VIEW -d "${videoUrl}"`;
+      }
+
+      await device.shell(command);
 
       logger.info('Video playback started', { url: videoUrl });
-      return successResult('Video playback started', { url: videoUrl });
+      return successResult('Video playback started', { 
+        url: videoUrl,
+        client: youtubeConfig?.package || 'system-default'
+      });
     } catch (error) {
       // Check for "Activity not started" or "No Activity found" patterns
       if (
@@ -86,7 +100,12 @@ const playVideoAction = {
         return errorResult(
           'NO_APP_FOR_URL',
           'No app found to handle video URL',
-          { url: videoUrl, suggestion: 'Install YouTube app on the device' }
+          { 
+            url: videoUrl, 
+            suggestion: youtubeConfig 
+              ? 'Check youtube.package and youtube.activity in config' 
+              : 'Install YouTube app or configure youtube client in config.json'
+          }
         );
       }
 
