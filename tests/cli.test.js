@@ -59,7 +59,7 @@ describe('CLI Entry Point', () => {
         cwd: projectRoot
       });
 
-      expect(result).toContain('Test device connection');
+      expect(result).toContain('Manually trigger an action or task');
     });
 
     it('should show description for validate command', () => {

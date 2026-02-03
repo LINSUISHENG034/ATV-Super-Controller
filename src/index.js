@@ -27,7 +27,11 @@ program
 
 program
   .command('test')
-  .description('Test device connection')
+  .description('Manually trigger an action or task')
+  .argument('<name>', 'Action name (wake-up, launch-app, play-video, shutdown) or configured task name')
+  .option('--url <url>', 'YouTube URL for play-video action')
+  .option('--app <package>', 'App package for launch-app action')
+  .option('-c, --config <path>', 'Path to config file')
   .action(testCommand);
 
 program
