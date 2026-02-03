@@ -4,6 +4,7 @@
  * SOLE registry for all action types
  */
 import { wakeUpAction } from './wake-up.js';
+import { launchAppAction } from './launch-app.js';
 
 const actionRegistry = new Map();
 
@@ -38,5 +39,6 @@ function listActions() {
 
 // Register built-in actions
 registerAction(wakeUpAction);
+registerAction(launchAppAction);
 
 export { registerAction, getAction, listActions };
