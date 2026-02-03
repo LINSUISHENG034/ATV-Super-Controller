@@ -1,13 +1,16 @@
 /**
  * Scheduler Service
  * Manages task registration and scheduling using node-schedule
- * Note: Actual job scheduling will be implemented in Story 3-2
  */
+import schedule from 'node-schedule';
 import { logger } from '../utils/logger.js';
 import { validateCronExpression } from '../utils/cron-validator.js';
 
-// Store registered tasks
+// Store registered tasks with job references
 const registeredTasks = new Map();
+
+// Scheduler state
+let schedulerRunning = false;
 
 /**
  * Register a task for scheduling
@@ -15,9 +18,10 @@ const registeredTasks = new Map();
  * @param {string} task.name - Task name
  * @param {string} task.schedule - 6-field cron expression
  * @param {Array} task.actions - Array of actions to execute
+ * @param {Function} [onTrigger] - Callback when task triggers
  * @returns {object} Registration result
  */
-function registerTask(task) {
+function registerTask(task, onTrigger) {
   if (!task.name) {
     return { success: false, error: 'Task name is required' };
   }
@@ -27,17 +31,30 @@ function registerTask(task) {
     return { success: false, error: cronResult.error };
   }
 
-  // Store task (stub - actual scheduling in Story 3-2)
+  // Create actual scheduled job using node-schedule
+  const job = schedule.scheduleJob(task.schedule, async () => {
+    logger.info(`Task triggered: ${task.name}`);
+    if (onTrigger) {
+      await onTrigger(task);
+    }
+  });
+
+  if (!job) {
+    return { success: false, error: 'Failed to schedule job' };
+  }
+
+  // Store task with job reference for later cancellation
   registeredTasks.set(task.name, {
     name: task.name,
     schedule: task.schedule,
     actions: task.actions,
-    nextRun: cronResult.nextRun
+    job: job,
+    nextRun: job.nextInvocation()
   });
 
-  logger.info(`Task registered: ${task.name}, next run: ${cronResult.nextRun}`);
+  logger.info(`Task registered: ${task.name}, next run: ${job.nextInvocation()}`);
 
-  return { success: true, nextRun: cronResult.nextRun };
+  return { success: true, nextRun: job.nextInvocation() };
 }
 
 /**
@@ -62,9 +79,72 @@ function getNextRunTimes() {
 
 /**
  * Clear all registered tasks (for testing)
+ * Cancels all scheduled jobs before clearing
  */
 function clearTasks() {
+  for (const [name, task] of registeredTasks) {
+    if (task.job) {
+      task.job.cancel();
+    }
+  }
   registeredTasks.clear();
+  schedulerRunning = false;
 }
 
-export { registerTask, getRegisteredTasks, getNextRunTimes, clearTasks };
+/**
+ * Start the scheduler with an array of tasks
+ * @param {Array} tasks - Array of task configurations
+ * @param {Function} executor - Function to execute when task triggers
+ * @returns {object} Result with success flag and task count
+ */
+function startScheduler(tasks, executor) {
+  let registeredCount = 0;
+
+  for (const task of tasks) {
+    const result = registerTask(task, executor);
+    if (result.success) {
+      registeredCount++;
+      logger.info(`Next run for ${task.name}: ${result.nextRun}`);
+    } else {
+      logger.warn(`Failed to register task ${task.name}: ${result.error}`);
+    }
+  }
+
+  schedulerRunning = true;
+  return { success: true, taskCount: registeredCount };
+}
+
+/**
+ * Stop the scheduler and cancel all scheduled jobs
+ */
+function stopScheduler() {
+  for (const [name, task] of registeredTasks) {
+    if (task.job) {
+      task.job.cancel();
+      logger.info(`Cancelled job: ${name}`);
+    }
+  }
+  registeredTasks.clear();
+  schedulerRunning = false;
+}
+
+/**
+ * Get scheduler statistics
+ * @returns {object} Stats with running status and task count
+ */
+function getSchedulerStats() {
+  return {
+    running: schedulerRunning,
+    taskCount: registeredTasks.size
+  };
+}
+
+export {
+  registerTask,
+  getRegisteredTasks,
+  getNextRunTimes,
+  clearTasks,
+  startScheduler,
+  stopScheduler,
+  getSchedulerStats
+};
