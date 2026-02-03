@@ -3,7 +3,7 @@
  * Launches an app on the Android TV using am start command
  * Follows Strategy pattern - receives device object from executor
  */
-import { logger } from '../utils/logger.js';
+import { logger, logAdbCommand } from '../utils/logger.js';
 import { successResult, errorResult } from './result.js';
 
 const launchAppAction = {
@@ -26,7 +26,9 @@ const launchAppAction = {
 
       // Execute am start command
       // am start -n automatically brings app to foreground if already running (AC3)
-      await device.shell(`am start -n ${component}`);
+      const command = `am start -n ${component}`;
+      logAdbCommand(command, device.id);
+      await device.shell(command);
 
       logger.info('App launched successfully', { package: packageName, activity: activityName });
       return successResult('App launched successfully', {

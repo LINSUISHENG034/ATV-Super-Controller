@@ -5,6 +5,7 @@ import { getAction, listActions } from '../actions/index.js';
 import { loadConfig } from '../utils/config.js';
 import { connect, getDevice, disconnect } from '../services/adb-client.js';
 import { logger } from '../utils/logger.js';
+import { executeTask } from '../services/executor.js';
 
 /**
  * Execute a specific action or configured task for testing
@@ -34,20 +35,16 @@ export async function testCommand(name, options) {
   // 3. Check for action first, then task in config
   let action = getAction(name);
   let params = {};
+  let task = null;
 
   if (!action) {
     // Look for task in config
-    const task = config.tasks?.find(t => t.name === name);
-    if (task) {
-      action = getAction(task.action.type);
-      params = task.action;
+    task = config.tasks?.find(t => t.name === name);
+    if (!task) {
+      console.error(`Task not found: ${name}`);
+      console.log(`Available actions: ${listActions().join(', ')}`);
+      process.exit(1);
     }
-  }
-
-  if (!action) {
-    console.error(`Task not found: ${name}`);
-    console.log(`Available actions: ${listActions().join(', ')}`);
-    process.exit(1);
   }
 
   // 4. Build params from options
@@ -61,33 +58,48 @@ export async function testCommand(name, options) {
     process.exit(1);
   }
 
-  // 6. Execute action
+  // 6. Execute action or task
   const device = getDevice();
-  logger.info(`Executing action: ${action.name}`, { params });
+  const context = { youtube: config.youtube };
 
-  // Build context for actions that need config (e.g., play-video needs youtube config)
-  const context = {
-    youtube: config.youtube
-  };
-
-  let actionResult;
+  let execResult;
   try {
-    actionResult = await action.execute(device, params, context);
+    if (task) {
+      // Execute full task with action chain
+      logger.info(`Executing task: ${task.name}`, { actions: task.actions.length });
+      execResult = await executeTask(task, device, context);
+    } else {
+      // Execute single action
+      logger.info(`Executing action: ${action.name}`, { params });
+      const actionResult = await action.execute(device, params, context);
+      execResult = {
+        success: actionResult.success,
+        message: actionResult.message,
+        error: actionResult.error,
+        actionName: action.name
+      };
+    }
   } finally {
     await disconnect();
   }
 
   // 7. Display result
-  if (actionResult.success) {
-    console.log(`✓ ${action.name}: ${actionResult.message}`);
-    if (actionResult.data) {
-      console.log('  Details:', JSON.stringify(actionResult.data, null, 2));
+  if (execResult.success) {
+    if (task) {
+      console.log(`✓ Task '${task.name}' completed successfully`);
+      console.log(`  Actions: ${execResult.results.length}, Duration: ${execResult.duration}ms`);
+    } else {
+      console.log(`✓ ${execResult.actionName}: ${execResult.message}`);
     }
     process.exit(0);
   } else {
-    console.error(`✗ ${action.name}: ${actionResult.error.message}`);
-    if (actionResult.error.details) {
-      console.error('  Details:', JSON.stringify(actionResult.error.details, null, 2));
+    if (task) {
+      console.error(`✗ Task '${task.name}' failed: ${execResult.error}`);
+      if (execResult.failedAction) {
+        console.error(`  Failed at action: ${execResult.failedAction}`);
+      }
+    } else {
+      console.error(`✗ ${execResult.actionName}: ${execResult.error?.message || execResult.error}`);
     }
     process.exit(1);
   }

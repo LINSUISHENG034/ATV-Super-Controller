@@ -2,7 +2,7 @@
  * Executor Service
  * Executes task action chains on the device
  */
-import { logger } from '../utils/logger.js';
+import { logger, logTaskStart, logTaskComplete, logTaskFailed } from '../utils/logger.js';
 import { getAction } from '../actions/index.js';
 
 // Retry configuration constants (NFR6: Max 3 retries)
@@ -74,7 +74,9 @@ async function retryWithBackoff(fn, maxRetries = MAX_RETRIES, initialDelay = INI
  */
 async function executeTask(task, device, context = {}) {
   const startTime = Date.now();
-  logger.info(`Executing task: ${task.name}`);
+
+  // Task 2.1: Add task start log in executor.js with taskName and actions
+  logTaskStart(task.name, task.actions || []);
 
   if (!task.actions || task.actions.length === 0) {
     logger.warn(`Task '${task.name}' has no actions to execute`);
@@ -88,16 +90,22 @@ async function executeTask(task, device, context = {}) {
 
     if (!action) {
       logger.error(`Unknown action type: ${actionDef.type}`);
+      const duration = Date.now() - startTime;
+
+      // Task 2.2: Add task failure log with duration and result status
+      logTaskFailed(task.name, duration, `Unknown action: ${actionDef.type}`, 0);
+
       return {
         success: false,
         status: 'failed',
         error: `Unknown action: ${actionDef.type}`,
         failedAtIndex: i,
         results,
-        duration: Date.now() - startTime
+        duration
       };
     }
 
+    // Task 2.3: Add action-level logging (start/complete for each action)
     logger.info(`Executing action: ${actionDef.type}`);
     const actionStart = Date.now();
 
@@ -117,7 +125,20 @@ async function executeTask(task, device, context = {}) {
         actionResult.retryCount = retryCount;
       }
       results.push(actionResult);
+
+      // Task 2.3: Log action completion
+      logger.info(`Action completed: ${actionDef.type}`, {
+        action: actionDef.type,
+        duration: actionResult.duration,
+        retryCount: retryCount || 0
+      });
     } catch (error) {
+      const duration = Date.now() - startTime;
+
+      // Task 2.4: Include retry information in failure logs
+      // When retryWithBackoff throws, all MAX_RETRIES attempts have been exhausted
+      logTaskFailed(task.name, duration, error.message, MAX_RETRIES);
+
       logger.error(`Action failed after ${MAX_RETRIES} retries: ${actionDef.type}`, {
         task: task.name,
         action: actionDef.type,
@@ -131,17 +152,21 @@ async function executeTask(task, device, context = {}) {
         failedAtIndex: i,
         failedAction: actionDef.type,
         results,
-        duration: Date.now() - startTime
+        duration
       };
     }
   }
 
-  logger.info(`Task '${task.name}' completed successfully`);
+  const duration = Date.now() - startTime;
+
+  // Task 2.2: Add task completion log with duration and result status
+  logTaskComplete(task.name, duration, 'success');
+
   return {
     success: true,
     status: 'completed',
     results,
-    duration: Date.now() - startTime
+    duration
   };
 }
 

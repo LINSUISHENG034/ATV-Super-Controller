@@ -8,7 +8,8 @@ vi.mock('../../src/utils/logger.js', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn()
-  }
+  },
+  logAdbCommand: vi.fn()
 }));
 
 describe('Play-Video Action', () => {

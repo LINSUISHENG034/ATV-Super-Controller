@@ -3,7 +3,7 @@
  * SOLE OWNER of ADB connection - no other module may access ADB directly
  */
 import AdbKit from '@devicefarmer/adbkit';
-import { logger } from '../utils/logger.js';
+import { logger, logAdbCommand } from '../utils/logger.js';
 
 const Adb = AdbKit.Adb;
 
@@ -125,7 +125,11 @@ function startHealthCheck(intervalMs = 5000) {
     if (!currentDevice) return;
 
     try {
-      await currentDevice.shell('echo ping');
+      // Task 3.1 & 3.2: Add debug log before each ADB shell command
+      logAdbCommand('echo ping', currentTarget);
+      const result = await currentDevice.shell('echo ping');
+      // Task 3.3: Log command result/response at debug level
+      logger.debug('ADB command result', { command: 'echo ping', result });
     } catch (error) {
       logger.warn('Connection lost, attempting reconnect...', { error: error.message });
       stopHealthCheck();

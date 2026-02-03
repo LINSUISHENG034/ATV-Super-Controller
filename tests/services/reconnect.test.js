@@ -16,7 +16,8 @@ vi.mock('../../src/utils/logger.js', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn()
-  }
+  },
+  logAdbCommand: vi.fn()
 }));
 
 describe('Reconnection Integration Tests (Story 1.5)', () => {

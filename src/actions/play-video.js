@@ -3,7 +3,7 @@
  * Plays a YouTube video on Android TV using VIEW intent
  * Uses VIEW intent for cross-device compatibility - do NOT hardcode Activity names
  */
-import { logger } from '../utils/logger.js';
+import { logger, logAdbCommand } from '../utils/logger.js';
 import { successResult, errorResult } from './result.js';
 
 /**
@@ -83,6 +83,7 @@ const playVideoAction = {
         command = `am start -a android.intent.action.VIEW -d "${videoUrl}"`;
       }
 
+      logAdbCommand(command, device.id);
       await device.shell(command);
 
       logger.info('Video playback started', { url: videoUrl });

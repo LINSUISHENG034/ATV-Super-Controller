@@ -8,7 +8,11 @@ vi.mock('../../src/utils/logger.js', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn()
-  }
+  },
+  logTaskStart: vi.fn(),
+  logTaskComplete: vi.fn(),
+  logTaskFailed: vi.fn(),
+  logWithContext: vi.fn()
 }));
 
 vi.mock('../../src/actions/index.js', () => ({
@@ -16,7 +20,7 @@ vi.mock('../../src/actions/index.js', () => ({
 }));
 
 import { getAction } from '../../src/actions/index.js';
-import { logger } from '../../src/utils/logger.js';
+import { logger, logTaskComplete } from '../../src/utils/logger.js';
 
 describe('retryWithBackoff', () => {
   beforeEach(() => {
@@ -156,7 +160,7 @@ describe('executor service', () => {
       // Verify device is passed correctly to each action
       expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'wake' }, {});
       expect(mockAction.execute).toHaveBeenCalledWith(mockDevice, { type: 'launch-app', package: 'com.example' }, {});
-      expect(logger.info).toHaveBeenCalledWith("Task 'test-task' completed successfully");
+      expect(logTaskComplete).toHaveBeenCalledWith('test-task', expect.any(Number), 'success');
     });
 
     it('should return error for unknown action type', async () => {
@@ -284,7 +288,7 @@ describe('executor service', () => {
 
       await executeTask(task, mockDevice);
 
-      expect(logger.info).toHaveBeenCalledWith("Task 'morning-routine' completed successfully");
+      expect(logTaskComplete).toHaveBeenCalledWith('morning-routine', expect.any(Number), 'success');
     });
 
     it('should log warning for task with empty actions array', async () => {

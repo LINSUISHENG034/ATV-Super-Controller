@@ -4,7 +4,7 @@
  * Uses idempotent KEYCODE_WAKEUP (224) which only wakes, never sleeps
  */
 import AdbKit from '@devicefarmer/adbkit';
-import { logger } from '../utils/logger.js';
+import { logger, logAdbCommand } from '../utils/logger.js';
 import { successResult, errorResult } from './result.js';
 
 const wakeUpAction = {
@@ -12,7 +12,9 @@ const wakeUpAction = {
   async execute(device, params) {
     try {
       // AC3: Check if device is already awake
-      const statusStream = await device.shell('dumpsys power | grep mWakefulness=');
+      const statusCommand = 'dumpsys power | grep mWakefulness=';
+      logAdbCommand(statusCommand, device.id);
+      const statusStream = await device.shell(statusCommand);
       const statusOutput = await AdbKit.Adb.util.readAll(statusStream);
       const statusStr = statusOutput.toString().trim();
       const isAwake = statusStr.includes('mWakefulness=Awake');
@@ -24,13 +26,17 @@ const wakeUpAction = {
       }
 
       // AC2: Send KEYCODE_POWER command (more universally compatible than KEYCODE_WAKEUP)
-      await device.shell('input keyevent KEYCODE_POWER');
+      const wakeCommand = 'input keyevent KEYCODE_POWER';
+      logAdbCommand(wakeCommand, device.id);
+      await device.shell(wakeCommand);
       
       // Wait a moment for the device to wake
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Verify wake succeeded
-      const verifyStream = await device.shell('dumpsys power | grep mWakefulness=');
+      const verifyCommand = 'dumpsys power | grep mWakefulness=';
+      logAdbCommand(verifyCommand, device.id);
+      const verifyStream = await device.shell(verifyCommand);
       const verifyOutput = await AdbKit.Adb.util.readAll(verifyStream);
       const verifyStr = verifyOutput.toString().trim();
       const wakeSucceeded = verifyStr.includes('mWakefulness=Awake');

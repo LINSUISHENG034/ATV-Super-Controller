@@ -4,7 +4,7 @@
  * Checks screen state before/after to handle "already in standby" case
  */
 import AdbKit from '@devicefarmer/adbkit';
-import { logger } from '../utils/logger.js';
+import { logger, logAdbCommand } from '../utils/logger.js';
 import { successResult, errorResult } from './result.js';
 
 /**
@@ -16,7 +16,9 @@ import { successResult, errorResult } from './result.js';
  */
 async function getScreenState(device) {
   try {
-    const stream = await device.shell("dumpsys power | grep 'Display Power'");
+    const command = "dumpsys power | grep 'Display Power'";
+    logAdbCommand(command, device.id);
+    const stream = await device.shell(command);
     const outputBuffer = await AdbKit.Adb.util.readAll(stream);
     const output = outputBuffer.toString().trim();
 
@@ -61,7 +63,9 @@ const shutdownAction = {
       }
 
       // AC1: Send power key to toggle off
-      await device.shell('input keyevent KEYCODE_POWER');
+      const powerCommand = 'input keyevent KEYCODE_POWER';
+      logAdbCommand(powerCommand, device.id);
+      await device.shell(powerCommand);
 
       // Verify screen turned off
       const newState = await getScreenState(device);
