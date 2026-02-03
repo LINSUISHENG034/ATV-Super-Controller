@@ -5,6 +5,7 @@
  */
 import { launchAppAction } from './launch-app.js';
 import { playVideoAction } from './play-video.js';
+import { shutdownAction } from './shutdown.js';
 import { wakeUpAction } from './wake-up.js';
 
 const actionRegistry = new Map();
@@ -42,5 +43,6 @@ function listActions() {
 registerAction(wakeUpAction);
 registerAction(launchAppAction);
 registerAction(playVideoAction);
+registerAction(shutdownAction);
 
 export { registerAction, getAction, listActions };
