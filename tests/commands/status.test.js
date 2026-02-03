@@ -366,4 +366,173 @@ describe('Status Command - AC3', () => {
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('completed'));
     });
   });
+
+  // Story 4.1 Tests - Task Execution Status Tracking
+  describe('Story 4.1 - Task Execution Status Tracking', () => {
+    describe('Failure Count Display - AC3', () => {
+      it('should display failure count in human output', async () => {
+        config.loadConfig.mockResolvedValue({
+          device: { ip: '192.168.1.100', port: 5555 }
+        });
+        adbClient.connect.mockResolvedValue({ connected: true });
+        adbClient.getConnectionStatus.mockReturnValue({
+          connected: true,
+          device: '192.168.1.100:5555'
+        });
+        adbClient.getDeviceInfo.mockReturnValue({ id: 'abc123' });
+        scheduler.isSchedulerRunning.mockReturnValue(true);
+        scheduler.getRegisteredTasks.mockReturnValue([
+          {
+            name: 'test-task',
+            schedule: '0 30 7 * * *',
+            nextRun: new Date('2026-02-04T07:30:00.000Z'),
+            lastRunStatus: 'failed',
+            lastRunTime: new Date('2026-02-03T07:30:00.000Z'),
+            failureCount: 3,
+            executionHistory: []
+          }
+        ]);
+
+        await statusCommand();
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Failures: 3'));
+      });
+
+      it('should include failureCount in JSON output', async () => {
+        config.loadConfig.mockResolvedValue({
+          device: { ip: '192.168.1.100', port: 5555 }
+        });
+        adbClient.connect.mockResolvedValue({ connected: true });
+        adbClient.getConnectionStatus.mockReturnValue({
+          connected: true,
+          device: '192.168.1.100:5555'
+        });
+        adbClient.getDeviceInfo.mockReturnValue({ id: 'abc123' });
+        scheduler.isSchedulerRunning.mockReturnValue(true);
+        scheduler.getRegisteredTasks.mockReturnValue([
+          {
+            name: 'test-task',
+            schedule: '0 30 7 * * *',
+            nextRun: new Date('2026-02-04T07:30:00.000Z'),
+            lastRunStatus: 'failed',
+            lastRunTime: new Date('2026-02-03T07:30:00.000Z'),
+            failureCount: 5,
+            executionHistory: []
+          }
+        ]);
+
+        await statusCommand({ json: true });
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+        expect(output.tasks[0].failureCount).toBe(5);
+      });
+    });
+
+    describe('Execution History Display - AC2', () => {
+      it('should display last 3 executions in human output', async () => {
+        config.loadConfig.mockResolvedValue({
+          device: { ip: '192.168.1.100', port: 5555 }
+        });
+        adbClient.connect.mockResolvedValue({ connected: true });
+        adbClient.getConnectionStatus.mockReturnValue({
+          connected: true,
+          device: '192.168.1.100:5555'
+        });
+        adbClient.getDeviceInfo.mockReturnValue({ id: 'abc123' });
+        scheduler.isSchedulerRunning.mockReturnValue(true);
+
+        const mockHistory = [
+          { status: 'completed', endTime: new Date('2026-02-04T07:30:00.000Z'), duration: 1500 },
+          { status: 'completed', endTime: new Date('2026-02-03T07:30:00.000Z'), duration: 1200 },
+          { status: 'failed', endTime: new Date('2026-02-02T07:30:00.000Z'), duration: 500, error: 'Timeout' }
+        ];
+
+        scheduler.getRegisteredTasks.mockReturnValue([
+          {
+            name: 'history-task',
+            schedule: '0 30 7 * * *',
+            nextRun: new Date('2026-02-05T07:30:00.000Z'),
+            lastRunStatus: 'completed',
+            lastRunTime: new Date('2026-02-04T07:30:00.000Z'),
+            failureCount: 1,
+            executionHistory: mockHistory
+          }
+        ]);
+
+        await statusCommand();
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Recent Executions'));
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('✓ completed'));
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('✗ failed'));
+      });
+
+      it('should display error message for failed executions', async () => {
+        config.loadConfig.mockResolvedValue({
+          device: { ip: '192.168.1.100', port: 5555 }
+        });
+        adbClient.connect.mockResolvedValue({ connected: true });
+        adbClient.getConnectionStatus.mockReturnValue({
+          connected: true,
+          device: '192.168.1.100:5555'
+        });
+        adbClient.getDeviceInfo.mockReturnValue({ id: 'abc123' });
+        scheduler.isSchedulerRunning.mockReturnValue(true);
+        scheduler.getRegisteredTasks.mockReturnValue([
+          {
+            name: 'error-task',
+            schedule: '0 30 7 * * *',
+            nextRun: new Date('2026-02-05T07:30:00.000Z'),
+            lastRunStatus: 'failed',
+            lastRunTime: new Date('2026-02-04T07:30:00.000Z'),
+            failureCount: 2,
+            executionHistory: [
+              { status: 'failed', endTime: new Date('2026-02-04T07:30:00.000Z'), duration: 300, error: 'Connection failed' }
+            ]
+          }
+        ]);
+
+        await statusCommand();
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Error: Connection failed'));
+      });
+
+      it('should include full executionHistory array in JSON output', async () => {
+        config.loadConfig.mockResolvedValue({
+          device: { ip: '192.168.1.100', port: 5555 }
+        });
+        adbClient.connect.mockResolvedValue({ connected: true });
+        adbClient.getConnectionStatus.mockReturnValue({
+          connected: true,
+          device: '192.168.1.100:5555'
+        });
+        adbClient.getDeviceInfo.mockReturnValue({ id: 'abc123' });
+        scheduler.isSchedulerRunning.mockReturnValue(true);
+
+        const mockHistory = [
+          { status: 'completed', startTime: new Date('2026-02-04T07:29:58.500Z'), endTime: new Date('2026-02-04T07:30:00.000Z'), duration: 1500 },
+          { status: 'failed', startTime: new Date('2026-02-03T07:29:59.500Z'), endTime: new Date('2026-02-03T07:30:00.000Z'), duration: 500, error: 'Timeout' }
+        ];
+
+        scheduler.getRegisteredTasks.mockReturnValue([
+          {
+            name: 'full-history-task',
+            schedule: '0 30 7 * * *',
+            nextRun: new Date('2026-02-05T07:30:00.000Z'),
+            lastRunStatus: 'completed',
+            lastRunTime: new Date('2026-02-04T07:30:00.000Z'),
+            failureCount: 1,
+            executionHistory: mockHistory
+          }
+        ]);
+
+        await statusCommand({ json: true });
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+        expect(output.tasks[0].executionHistory).toHaveLength(2);
+        expect(output.tasks[0].executionHistory[0].status).toBe('completed');
+        expect(output.tasks[0].executionHistory[1].status).toBe('failed');
+        expect(output.tasks[0].executionHistory[1].error).toBe('Timeout');
+      });
+    });
+  });
 });

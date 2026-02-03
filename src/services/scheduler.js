@@ -9,6 +9,9 @@ import { validateCronExpression } from '../utils/cron-validator.js';
 // Store registered tasks with job references
 const registeredTasks = new Map();
 
+// Maximum execution history entries to keep per task
+const MAX_HISTORY_ENTRIES = 10;
+
 // Scheduler state
 let schedulerRunning = false;
 
@@ -52,7 +55,9 @@ function registerTask(task, onTrigger) {
     nextRun: job.nextInvocation(),
     lastRunStatus: null,
     lastRunTime: null,
-    lastError: null
+    lastError: null,
+    failureCount: 0,
+    executionHistory: []
   });
 
   logger.info(`Task registered: ${task.name}, next run: ${job.nextInvocation()}`);
@@ -151,6 +156,61 @@ function isSchedulerRunning() {
 }
 
 /**
+ * Record execution with history tracking
+ * @param {string} taskName - Task name
+ * @param {{success: boolean, status: string, error?: string, duration: number}} result - Execution result
+ * @param {number} startTime - Execution start timestamp
+ * @param {number} endTime - Execution end timestamp
+ */
+function recordExecution(taskName, result, startTime, endTime) {
+  const task = registeredTasks.get(taskName);
+  if (!task) {
+    logger.warn(`Task not found for execution recording: ${taskName}`);
+    return;
+  }
+
+  // Validate result parameter
+  if (!result || typeof result !== 'object') {
+    logger.warn(`Invalid result object for task: ${taskName}`);
+    return;
+  }
+
+  if (typeof result.status !== 'string') {
+    logger.warn(`Invalid or missing status in result for task: ${taskName}`);
+    return;
+  }
+
+  // Create execution record
+  const executionRecord = {
+    status: result.status,
+    startTime: new Date(startTime),
+    endTime: new Date(endTime),
+    duration: endTime - startTime
+  };
+
+  // Add error if present
+  if (result.error) {
+    executionRecord.error = result.error;
+  }
+
+  // Add to history (circular buffer)
+  task.executionHistory.push(executionRecord);
+  if (task.executionHistory.length > MAX_HISTORY_ENTRIES) {
+    task.executionHistory.shift(); // Remove oldest entry
+  }
+
+  // Increment failure count for failed executions
+  if (!result.success) {
+    task.failureCount++;
+  }
+
+  // Call existing updateTaskStatus for backward compatibility
+  updateTaskStatus(taskName, result);
+
+  logger.info(`Execution recorded for task: ${taskName}, status: ${result.status}, duration: ${executionRecord.duration}ms`);
+}
+
+/**
  * Update task status after execution
  * @param {string} taskName - Task name
  * @param {{success: boolean, status: string, error?: string}} result - Execution result
@@ -186,7 +246,9 @@ function getTaskDetails(taskName) {
     nextRun: task.nextRun,
     lastRunStatus: task.lastRunStatus,
     lastRunTime: task.lastRunTime,
-    lastError: task.lastError
+    lastError: task.lastError,
+    failureCount: task.failureCount,
+    executionHistory: task.executionHistory
   };
 }
 
@@ -200,5 +262,6 @@ export {
   getSchedulerStats,
   isSchedulerRunning,
   updateTaskStatus,
-  getTaskDetails
+  getTaskDetails,
+  recordExecution
 };

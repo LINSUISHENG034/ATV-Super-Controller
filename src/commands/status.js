@@ -26,7 +26,15 @@ function buildJsonOutput(serviceRunning, result, connectionStatus, deviceInfo, t
       schedule: task.schedule,
       nextRun: task.nextRun?.toISOString() || null,
       lastRunStatus: task.lastRunStatus || null,
-      lastRunTime: task.lastRunTime?.toISOString() || null
+      lastRunTime: task.lastRunTime?.toISOString() || null,
+      failureCount: task.failureCount || 0,
+      executionHistory: (task.executionHistory || []).map(h => ({
+        status: h.status,
+        startTime: h.startTime?.toISOString() || null,
+        endTime: h.endTime?.toISOString() || null,
+        duration: h.duration || null,
+        error: h.error || null
+      }))
     }))
   };
 }
@@ -82,6 +90,22 @@ function displayHumanOutput(serviceRunning, result, connectionStatus, deviceInfo
         console.log(`    Last Run: ${task.lastRunStatus} (${task.lastRunTime?.toISOString() || 'unknown'})`);
       } else {
         console.log(`    Last Run: (never)`);
+      }
+      // Display failure count
+      console.log(`    Failures: ${task.failureCount || 0}`);
+      // Display last 3 execution history entries
+      if (task.executionHistory && task.executionHistory.length > 0) {
+        console.log(`    Recent Executions:`);
+        const recentHistory = task.executionHistory.slice(-3).reverse();
+        for (const exec of recentHistory) {
+          const statusStr = exec.status === 'completed' ? '✓' : '✗';
+          const durationStr = `${exec.duration}ms`;
+          const timeStr = exec.endTime ? exec.endTime.toLocaleString() : 'unknown';
+          console.log(`      ${statusStr} ${exec.status} (${timeStr}) - ${durationStr}`);
+          if (exec.error) {
+            console.log(`        Error: ${exec.error}`);
+          }
+        }
       }
     }
   }

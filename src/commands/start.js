@@ -3,7 +3,7 @@
  */
 import { loadConfig } from '../utils/config.js';
 import { connect, disconnect, getDevice } from '../services/adb-client.js';
-import { startScheduler, stopScheduler, updateTaskStatus } from '../services/scheduler.js';
+import { startScheduler, stopScheduler, recordExecution } from '../services/scheduler.js';
 import { executeTask } from '../services/executor.js';
 import { logger } from '../utils/logger.js';
 
@@ -47,8 +47,10 @@ export async function startCommand() {
 
     // Task executor callback
     const executor = async (task) => {
+      const startTime = Date.now();
       const result = await executeTask(task, device, context);
-      updateTaskStatus(task.name, result);
+      const endTime = Date.now();
+      recordExecution(task.name, result, startTime, endTime);
     };
 
     // Start scheduler with all tasks

@@ -9,7 +9,8 @@ import {
   getSchedulerStats,
   updateTaskStatus,
   isSchedulerRunning,
-  getTaskDetails
+  getTaskDetails,
+  recordExecution
 } from '../../src/services/scheduler.js';
 
 // Mock logger
@@ -306,6 +307,32 @@ describe('scheduler service', () => {
       const details = getTaskDetails('non-existent');
       expect(details).toBeNull();
     });
+
+    it('should include failureCount and executionHistory in task details', () => {
+      registerTask({
+        name: 'details-task',
+        schedule: '0 30 7 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      // Record some executions
+      const startTime = Date.now() - 1000;
+      const endTime = Date.now();
+      recordExecution('details-task', {
+        success: false,
+        status: 'failed',
+        error: 'Test error',
+        duration: 1000
+      }, startTime, endTime);
+
+      const details = getTaskDetails('details-task');
+
+      expect(details).toBeDefined();
+      expect(details.failureCount).toBe(1);
+      expect(details.executionHistory).toHaveLength(1);
+      expect(details.executionHistory[0].status).toBe('failed');
+      expect(details.executionHistory[0].error).toBe('Test error');
+    });
   });
 
   describe('registerTask with tracking fields', () => {
@@ -321,6 +348,190 @@ describe('scheduler service', () => {
 
       expect(task.lastRunStatus).toBeNull();
       expect(task.lastRunTime).toBeNull();
+    });
+  });
+
+  // Story 4.1 Tests - Task Execution Status Tracking
+  describe('recordExecution - Story 4.1', () => {
+    it('should initialize failureCount and executionHistory for new task', () => {
+      registerTask({
+        name: 'history-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'history-task');
+
+      expect(task.failureCount).toBe(0);
+      expect(task.executionHistory).toEqual([]);
+    });
+
+    it('should record successful execution with timing data', () => {
+      registerTask({
+        name: 'success-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const startTime = Date.now() - 1000;
+      const endTime = Date.now();
+
+      recordExecution('success-task', {
+        success: true,
+        status: 'completed',
+        duration: 1000
+      }, startTime, endTime);
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'success-task');
+
+      expect(task.executionHistory).toHaveLength(1);
+      expect(task.executionHistory[0].status).toBe('completed');
+      expect(task.executionHistory[0].startTime).toEqual(new Date(startTime));
+      expect(task.executionHistory[0].endTime).toEqual(new Date(endTime));
+      expect(task.executionHistory[0].duration).toBe(1000);
+      expect(task.failureCount).toBe(0);
+    });
+
+    it('should record failed execution with error and increment failureCount', () => {
+      registerTask({
+        name: 'fail-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const startTime = Date.now() - 500;
+      const endTime = Date.now();
+
+      recordExecution('fail-task', {
+        success: false,
+        status: 'failed',
+        error: 'Connection timeout',
+        duration: 500
+      }, startTime, endTime);
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'fail-task');
+
+      expect(task.executionHistory).toHaveLength(1);
+      expect(task.executionHistory[0].status).toBe('failed');
+      expect(task.executionHistory[0].error).toBe('Connection timeout');
+      expect(task.failureCount).toBe(1);
+    });
+
+    it('should maintain circular buffer - drop oldest when history exceeds MAX_HISTORY_ENTRIES', () => {
+      registerTask({
+        name: 'buffer-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      // Record 12 executions (MAX_HISTORY_ENTRIES is 10, so 2 should be dropped)
+      for (let i = 0; i < 12; i++) {
+        const startTime = Date.now() - (i * 1000);
+        const endTime = Date.now() - (i * 1000) + 100;
+        recordExecution('buffer-task', {
+          success: true,
+          status: 'completed',
+          duration: 100
+        }, startTime, endTime);
+      }
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'buffer-task');
+
+      expect(task.executionHistory).toHaveLength(10);
+    });
+
+    it('should increment failureCount only on failures, not on success', () => {
+      registerTask({
+        name: 'mixed-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const startTime = Date.now() - 100;
+      const endTime = Date.now();
+
+      // Record 3 successes and 2 failures
+      for (let i = 0; i < 3; i++) {
+        recordExecution('mixed-task', {
+          success: true,
+          status: 'completed',
+          duration: 100
+        }, startTime, endTime);
+      }
+      for (let i = 0; i < 2; i++) {
+        recordExecution('mixed-task', {
+          success: false,
+          status: 'failed',
+          error: 'Error',
+          duration: 50
+        }, startTime, endTime);
+      }
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'mixed-task');
+
+      expect(task.executionHistory).toHaveLength(5);
+      expect(task.failureCount).toBe(2);
+    });
+
+    it('should update lastRunStatus and lastRunTime via updateTaskStatus (backward compatibility)', () => {
+      registerTask({
+        name: 'compat-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const startTime = Date.now() - 100;
+      const endTime = Date.now();
+
+      recordExecution('compat-task', {
+        success: true,
+        status: 'completed',
+        duration: 100
+      }, startTime, endTime);
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'compat-task');
+
+      expect(task.lastRunStatus).toBe('completed');
+      expect(task.lastRunTime).toBeInstanceOf(Date);
+    });
+
+    it('should handle recording for non-existent task gracefully', () => {
+      expect(() => {
+        recordExecution('non-existent', {
+          success: true,
+          status: 'completed',
+          duration: 100
+        }, Date.now() - 100, Date.now());
+      }).not.toThrow();
+    });
+
+    it('should handle invalid result object gracefully', () => {
+      registerTask({
+        name: 'validation-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      // Should not throw with null result
+      expect(() => {
+        recordExecution('validation-task', null, Date.now() - 100, Date.now());
+      }).not.toThrow();
+
+      // Should not throw with missing status
+      expect(() => {
+        recordExecution('validation-task', { success: true }, Date.now() - 100, Date.now());
+      }).not.toThrow();
+
+      // Task should remain unchanged
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'validation-task');
+      expect(task.executionHistory).toHaveLength(0);
     });
   });
 });
