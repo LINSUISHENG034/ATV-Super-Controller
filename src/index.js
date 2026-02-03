@@ -23,6 +23,7 @@ program
 program
   .command('status')
   .description('Show scheduler and device status')
+  .option('--json', 'Output in JSON format')
   .action(statusCommand);
 
 program

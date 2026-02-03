@@ -6,7 +6,10 @@ import {
   clearTasks,
   startScheduler,
   stopScheduler,
-  getSchedulerStats
+  getSchedulerStats,
+  updateTaskStatus,
+  isSchedulerRunning,
+  getTaskDetails
 } from '../../src/services/scheduler.js';
 
 // Mock logger
@@ -200,6 +203,124 @@ describe('scheduler service', () => {
 
       expect(stats.running).toBe(true);
       expect(stats.taskCount).toBe(2);
+    });
+  });
+
+  describe('isSchedulerRunning', () => {
+    afterEach(() => {
+      stopScheduler();
+    });
+
+    it('should return false when scheduler not started', () => {
+      expect(isSchedulerRunning()).toBe(false);
+    });
+
+    it('should return true when scheduler is running', () => {
+      const tasks = [
+        { name: 'task1', schedule: '0 0 7 * * *', actions: [{ type: 'wake' }] }
+      ];
+      startScheduler(tasks, vi.fn());
+
+      expect(isSchedulerRunning()).toBe(true);
+    });
+
+    it('should return false after scheduler is stopped', () => {
+      const tasks = [
+        { name: 'task1', schedule: '0 0 7 * * *', actions: [{ type: 'wake' }] }
+      ];
+      startScheduler(tasks, vi.fn());
+      stopScheduler();
+
+      expect(isSchedulerRunning()).toBe(false);
+    });
+  });
+
+  describe('updateTaskStatus', () => {
+    afterEach(() => {
+      stopScheduler();
+    });
+
+    it('should update lastRunStatus and lastRunTime for existing task', () => {
+      registerTask({
+        name: 'test-task',
+        schedule: '0 0 7 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      updateTaskStatus('test-task', { success: true, status: 'completed' });
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'test-task');
+      expect(task.lastRunStatus).toBe('completed');
+      expect(task.lastRunTime).toBeInstanceOf(Date);
+    });
+
+    it('should store error message on failed execution', () => {
+      registerTask({
+        name: 'test-task',
+        schedule: '0 0 7 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      updateTaskStatus('test-task', {
+        success: false,
+        status: 'failed',
+        error: 'Connection timeout'
+      });
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'test-task');
+      expect(task.lastRunStatus).toBe('failed');
+      expect(task.lastError).toBe('Connection timeout');
+    });
+
+    it('should do nothing for non-existent task', () => {
+      expect(() => {
+        updateTaskStatus('non-existent', { success: true, status: 'completed' });
+      }).not.toThrow();
+    });
+  });
+
+  describe('getTaskDetails', () => {
+    afterEach(() => {
+      stopScheduler();
+    });
+
+    it('should return task details for existing task', () => {
+      registerTask({
+        name: 'test-task',
+        schedule: '0 30 7 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const details = getTaskDetails('test-task');
+
+      expect(details).toBeDefined();
+      expect(details.name).toBe('test-task');
+      expect(details.schedule).toBe('0 30 7 * * *');
+      expect(details.lastRunStatus).toBeNull();
+      expect(details.lastRunTime).toBeNull();
+    });
+
+    it('should return null for non-existent task', () => {
+      const details = getTaskDetails('non-existent');
+      expect(details).toBeNull();
+    });
+  });
+
+  describe('registerTask with tracking fields', () => {
+    it('should initialize lastRunStatus and lastRunTime as null', () => {
+      registerTask({
+        name: 'new-task',
+        schedule: '0 0 8 * * *',
+        actions: [{ type: 'wake' }]
+      });
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'new-task');
+
+      expect(task.lastRunStatus).toBeNull();
+      expect(task.lastRunTime).toBeNull();
     });
   });
 });

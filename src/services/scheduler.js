@@ -49,7 +49,10 @@ function registerTask(task, onTrigger) {
     schedule: task.schedule,
     actions: task.actions,
     job: job,
-    nextRun: job.nextInvocation()
+    nextRun: job.nextInvocation(),
+    lastRunStatus: null,
+    lastRunTime: null,
+    lastError: null
   });
 
   logger.info(`Task registered: ${task.name}, next run: ${job.nextInvocation()}`);
@@ -139,6 +142,54 @@ function getSchedulerStats() {
   };
 }
 
+/**
+ * Check if scheduler is currently running
+ * @returns {boolean}
+ */
+function isSchedulerRunning() {
+  return schedulerRunning;
+}
+
+/**
+ * Update task status after execution
+ * @param {string} taskName - Task name
+ * @param {{success: boolean, status: string, error?: string}} result - Execution result
+ */
+function updateTaskStatus(taskName, result) {
+  const task = registeredTasks.get(taskName);
+  if (task) {
+    task.lastRunStatus = result.status;
+    task.lastRunTime = new Date();
+    if (result.error) {
+      task.lastError = result.error;
+    }
+    if (task.job) {
+      task.nextRun = task.job.nextInvocation();
+    }
+  }
+}
+
+/**
+ * Get details for a single task
+ * @param {string} taskName - Task name
+ * @returns {object|null} Task details or null if not found
+ */
+function getTaskDetails(taskName) {
+  const task = registeredTasks.get(taskName);
+  if (!task) {
+    return null;
+  }
+  return {
+    name: task.name,
+    schedule: task.schedule,
+    actions: task.actions,
+    nextRun: task.nextRun,
+    lastRunStatus: task.lastRunStatus,
+    lastRunTime: task.lastRunTime,
+    lastError: task.lastError
+  };
+}
+
 export {
   registerTask,
   getRegisteredTasks,
@@ -146,5 +197,8 @@ export {
   clearTasks,
   startScheduler,
   stopScheduler,
-  getSchedulerStats
+  getSchedulerStats,
+  isSchedulerRunning,
+  updateTaskStatus,
+  getTaskDetails
 };
