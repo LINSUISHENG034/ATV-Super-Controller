@@ -77,4 +77,53 @@ describe('validate command', () => {
       }
     });
   });
+
+  describe('task validation errors', () => {
+    const invalidConfigPath = join(projectRoot, 'test-task-temp.json');
+
+    it('should exit 1 for invalid cron expression', () => {
+      writeFileSync(invalidConfigPath, JSON.stringify({
+        device: { ip: '192.168.1.1', port: 5555 },
+        tasks: [{
+          name: 'bad-cron',
+          schedule: '30 7 * * *',
+          actions: [{ type: 'wake' }]
+        }]
+      }));
+
+      try {
+        execSync(`node src/index.js validate --config ${invalidConfigPath}`, {
+          encoding: 'utf8'
+        });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error.stdout).toContain('Invalid cron');
+      } finally {
+        unlinkSync(invalidConfigPath);
+      }
+    });
+
+    it('should exit 1 for unknown action type', () => {
+      writeFileSync(invalidConfigPath, JSON.stringify({
+        device: { ip: '192.168.1.1', port: 5555 },
+        tasks: [{
+          name: 'bad-action',
+          schedule: '0 0 0 * * *',
+          actions: [{ type: 'unknown-action' }]
+        }]
+      }));
+
+      try {
+        execSync(`node src/index.js validate --config ${invalidConfigPath}`, {
+          encoding: 'utf8'
+        });
+        expect.fail('Should have thrown');
+      } catch (error) {
+        // JSON Schema catches invalid action types with 'must match exactly one schema'
+        expect(error.stdout).toContain('validation failed');
+      } finally {
+        unlinkSync(invalidConfigPath);
+      }
+    });
+  });
 });

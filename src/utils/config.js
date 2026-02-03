@@ -8,6 +8,8 @@ import { dirname, join } from 'path';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { logger } from './logger.js';
+import { validateCronExpression } from './cron-validator.js';
+import { getAction } from '../actions/index.js';
 
 import { readFileSync } from 'fs';
 
@@ -70,6 +72,52 @@ function validateConfig(config) {
 }
 
 /**
+ * Validate tasks configuration (cron expressions and action types)
+ * @param {object} config - Configuration object with tasks array
+ * @returns {object} Validation result with valid flag and errors array
+ */
+function validateTasks(config) {
+  const errors = [];
+
+  if (!config.tasks || !Array.isArray(config.tasks)) {
+    return { valid: true, errors: [] };
+  }
+
+  for (let i = 0; i < config.tasks.length; i++) {
+    const task = config.tasks[i];
+
+    // Validate cron expression
+    const cronResult = validateCronExpression(task.schedule);
+    if (!cronResult.valid) {
+      errors.push({
+        path: `/tasks/${i}/schedule`,
+        message: `Invalid cron expression: ${cronResult.error}`,
+        value: task.schedule
+      });
+    }
+
+    // Validate action types
+    if (task.actions && Array.isArray(task.actions)) {
+      for (let j = 0; j < task.actions.length; j++) {
+        const action = task.actions[j];
+        if (!getAction(action.type)) {
+          errors.push({
+            path: `/tasks/${i}/actions/${j}/type`,
+            message: `Unknown action type: ${action.type}`,
+            value: action.type
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/**
  * Load configuration with environment variable support
  * Resolves config path from ATV_CONFIG_PATH or defaults to ./config.json
  * Applies device overrides from ATV_DEVICE_IP and ATV_DEVICE_PORT
@@ -96,4 +144,4 @@ async function loadConfig(filePath) {
   return config;
 }
 
-export { loadConfigFile, validateConfig, loadConfig };
+export { loadConfigFile, validateConfig, validateTasks, loadConfig };

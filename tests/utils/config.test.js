@@ -244,3 +244,107 @@ describe('loadConfig (AC1, AC2)', () => {
     });
   });
 });
+
+describe('validateTasks', () => {
+  // Import validateTasks for testing
+  let validateTasks;
+
+  beforeEach(async () => {
+    const module = await import('../../src/utils/config.js');
+    validateTasks = module.validateTasks;
+  });
+
+  describe('cron expression validation', () => {
+    it('should pass for valid 6-field cron expression', () => {
+      const config = {
+        tasks: [{
+          name: 'test-task',
+          schedule: '0 30 7 * * *',
+          actions: [{ type: 'wake' }]
+        }]
+      };
+      const result = validateTasks(config);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should fail for 5-field cron expression', () => {
+      const config = {
+        tasks: [{
+          name: 'test-task',
+          schedule: '30 7 * * *',
+          actions: [{ type: 'wake' }]
+        }]
+      };
+      const result = validateTasks(config);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(e => e.path.includes('schedule'))).toBe(true);
+    });
+
+    it('should fail for invalid cron expression', () => {
+      const config = {
+        tasks: [{
+          name: 'test-task',
+          schedule: 'invalid cron',
+          actions: [{ type: 'wake' }]
+        }]
+      };
+      const result = validateTasks(config);
+      expect(result.valid).toBe(false);
+    });
+  });
+
+  describe('action type validation', () => {
+    it('should pass for registered action types', () => {
+      const config = {
+        tasks: [{
+          name: 'test-task',
+          schedule: '0 0 0 * * *',
+          actions: [
+            { type: 'wake' },
+            { type: 'wait', duration: 5000 },
+            { type: 'launch-app', package: 'com.test' },
+            { type: 'play-video', url: 'https://youtube.com/watch?v=abc' },
+            { type: 'shutdown' }
+          ]
+        }]
+      };
+      const result = validateTasks(config);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should fail for unregistered action type', () => {
+      const config = {
+        tasks: [{
+          name: 'test-task',
+          schedule: '0 0 0 * * *',
+          actions: [{ type: 'unknown-action' }]
+        }]
+      };
+      const result = validateTasks(config);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(e => e.message.includes('Unknown action type'))).toBe(true);
+    });
+  });
+
+  describe('multiple error collection', () => {
+    it('should collect all validation errors', () => {
+      const config = {
+        tasks: [
+          {
+            name: 'task1',
+            schedule: 'bad cron',
+            actions: [{ type: 'wake' }]
+          },
+          {
+            name: 'task2',
+            schedule: '0 0 0 * * *',
+            actions: [{ type: 'fake-action' }]
+          }
+        ]
+      };
+      const result = validateTasks(config);
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+});

@@ -55,7 +55,7 @@ describe('Wake-Up Action', () => {
 
   describe('action interface', () => {
     it('should have correct name', () => {
-      expect(wakeUpAction.name).toBe('wake-up');
+      expect(wakeUpAction.name).toBe('wake');
     });
 
     it('should have execute function', () => {

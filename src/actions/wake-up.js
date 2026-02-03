@@ -8,7 +8,7 @@ import { logger } from '../utils/logger.js';
 import { successResult, errorResult } from './result.js';
 
 const wakeUpAction = {
-  name: 'wake-up',
+  name: 'wake',
   async execute(device, params) {
     try {
       // AC3: Check if device is already awake
