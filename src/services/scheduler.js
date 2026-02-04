@@ -261,6 +261,15 @@ function getSchedulerStatus() {
   return getSchedulerStats();
 }
 
+/**
+ * Get all registered jobs (alias for getRegisteredTasks)
+ * Used by API to retrieve task list
+ * @returns {Array} List of tasks
+ */
+function getJobs() {
+  return getRegisteredTasks();
+}
+
 export {
   registerTask,
   getRegisteredTasks,
@@ -273,5 +282,6 @@ export {
   isSchedulerRunning,
   updateTaskStatus,
   getTaskDetails,
-  recordExecution
+  recordExecution,
+  getJobs
 };

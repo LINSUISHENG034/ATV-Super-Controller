@@ -4,6 +4,7 @@
  */
 import AdbKit from '@devicefarmer/adbkit';
 import { logger, logAdbCommand } from '../utils/logger.js';
+import { emitEvent } from '../web/websocket/broadcaster.js';
 
 const Adb = AdbKit.Adb;
 
@@ -43,6 +44,7 @@ async function connect(ip, port = 5555) {
     lastConnectedAt = new Date();
 
     logger.info(`Connected to device ${target}`);
+    emitEvent('status:device:connected', { target });
     return { connected: true, device: currentDevice };
   } catch (error) {
     connected = false;
@@ -65,6 +67,7 @@ async function disconnect() {
     try {
       await client.disconnect(currentTarget);
       logger.info(`Disconnected from device ${currentTarget}`);
+      emitEvent('status:device:disconnected', { target: currentTarget });
     } catch (error) {
       logger.warn('Error during disconnect', { reason: error.message });
     }
@@ -187,6 +190,7 @@ async function reconnect() {
       reconnecting = false;
       reconnectAttempt = 0;
       logger.info(`Reconnected to device ${target}`);
+      emitEvent('status:device:connected', { target });
       startHealthCheck();
       return { success: true };
     } catch (error) {

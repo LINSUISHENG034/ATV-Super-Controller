@@ -4,11 +4,43 @@
  */
 import { logger, logTaskStart, logTaskComplete, logTaskFailed } from '../utils/logger.js';
 import { getAction } from '../actions/index.js';
+import { emitEvent } from '../web/websocket/broadcaster.js';
 
 // Retry configuration constants (NFR6: Max 3 retries)
 const MAX_RETRIES = 3;
 const INITIAL_DELAY = 1000; // 1 second
 const BACKOFF_MULTIPLIER = 2; // Exponential backoff base
+
+// Global activity log
+const activityLog = [];
+const MAX_ACTIVITY_LOG = 20;
+
+/**
+ * Get recent activity log
+ * @returns {Array} List of recent activities
+ */
+function getActivityLog() {
+  return [...activityLog].reverse(); // Newest first
+}
+
+/**
+ * Add entry to activity log
+ * @param {string} message - Activity message
+ * @param {'INFO'|'ERROR'|'WARN'} type - Log type
+ */
+function addActivityLog(message, type = 'INFO') {
+  const entry = {
+    time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
+    timestamp: Date.now(),
+    type,
+    message
+  };
+  
+  activityLog.push(entry);
+  if (activityLog.length > MAX_ACTIVITY_LOG) {
+    activityLog.shift();
+  }
+}
 
 /**
  * Get retry configuration values
@@ -77,6 +109,7 @@ async function executeTask(task, device, context = {}) {
 
   // Task 2.1: Add task start log in executor.js with taskName and actions
   logTaskStart(task.name, task.actions || []);
+  addActivityLog(`Started: ${task.name}`, 'INFO');
 
   if (!task.actions || task.actions.length === 0) {
     logger.warn(`Task '${task.name}' has no actions to execute`);
@@ -138,6 +171,12 @@ async function executeTask(task, device, context = {}) {
       // Task 2.4: Include retry information in failure logs
       // When retryWithBackoff throws, all MAX_RETRIES attempts have been exhausted
       logTaskFailed(task.name, duration, error.message, MAX_RETRIES);
+      addActivityLog(`Failed: ${task.name} (${error.message})`, 'ERROR');
+      emitEvent('task:failed', { 
+        task: task.name, 
+        error: error.message, 
+        duration 
+      });
 
       logger.error(`Action failed after ${MAX_RETRIES} retries: ${actionDef.type}`, {
         task: task.name,
@@ -161,6 +200,11 @@ async function executeTask(task, device, context = {}) {
 
   // Task 2.2: Add task completion log with duration and result status
   logTaskComplete(task.name, duration, 'success');
+  addActivityLog(`Completed: ${task.name}`, 'INFO');
+  emitEvent('task:completed', { 
+    task: task.name, 
+    duration 
+  });
 
   return {
     success: true,
@@ -170,4 +214,21 @@ async function executeTask(task, device, context = {}) {
   };
 }
 
-export { executeTask, retryWithBackoff, getRetryConfig };
+/**
+ * Execute a single action directly
+ * @param {object} device - ADB device object
+ * @param {string} actionName - Name of action to execute
+ * @param {object} [params={}] - Action parameters
+ * @returns {Promise<object>} Execution result
+ */
+async function executeAction(device, actionName, params = {}) {
+  // Construct a temporary task for execution
+  const task = {
+    name: `Direct Action: ${actionName}`,
+    actions: [{ type: actionName, ...params }]
+  };
+  
+  return await executeTask(task, device, {});
+}
+
+export { executeTask, retryWithBackoff, getRetryConfig, executeAction, getActivityLog };

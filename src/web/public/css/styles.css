@@ -1,61 +1,64 @@
-/* ATV Super Controller - Base Styles */
+/* ATV Super Controller - Styles */
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Base overrides and utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  line-height: 1.6;
-  color: #333;
-  background-color: #f5f5f5;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Custom Scrollbar for Logs/Content */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1a1f2e;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
 }
 
-#app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+/* Animations */
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
+}
+.blink {
+  animation: blinker 1s linear infinite;
 }
 
-.header {
-  background-color: #2c3e50;
-  color: white;
-  padding: 1rem 2rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+/* Glow Effects */
+.glow-sm {
+  text-shadow: 0 0 10px currentColor;
+}
+.glow-ring {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
 }
 
-.header h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
+/* Focus Visibility */
+.focus-ring:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
-.main {
-  flex: 1;
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.loading {
-  text-align: center;
-  padding: 3rem;
-  color: #666;
-}
-
-.footer {
-  background-color: #34495e;
-  color: white;
-  text-align: center;
-  padding: 1rem;
-  margin-top: auto;
-}
-
-.footer p {
-  font-size: 0.875rem;
+/* Safe Area for Mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }
