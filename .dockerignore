@@ -1,0 +1,67 @@
+# Dependencies (installed fresh in container)
+node_modules/
+npm-debug.log*
+
+# Test files
+tests/
+test/
+*.test.js
+test-results/
+coverage/
+.nyc_output/
+
+# Documentation (*.md covers all markdown files)
+*.md
+docs/
+LICENSE
+
+# Build configuration
+.eslintrc*
+.prettierrc*
+.gitignore
+.editorconfig
+
+# Version control
+.git/
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Development tools / IDEs
+.vscode/
+.idea/
+.cursor/
+.windsurf/
+.claude/
+*.swp
+*.swo
+*~
+
+# Environment files (use mounted volume at runtime)
+.env
+.env.local
+.env.*.local
+config.json
+
+# BMAD framework files (not needed in production)
+_bmad/
+_bmad-output/
+
+# Spike/prototype code
+spike/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Logs (use stdout/stderr in container)
+logs/
+*.log
