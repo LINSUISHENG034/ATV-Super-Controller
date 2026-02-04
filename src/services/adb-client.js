@@ -205,4 +205,13 @@ function stopReconnect() {
   reconnecting = false;
 }
 
-export { connect, disconnect, getConnectionStatus, getDeviceInfo, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect };
+/**
+ * Get device status for API responses
+ * Alias for getConnectionStatus to provide consistent naming
+ * @returns {{connected: boolean, reconnecting: boolean, target: string|null, lastConnectedAt: Date|null}}
+ */
+function getDeviceStatus() {
+  return getConnectionStatus();
+}
+
+export { connect, disconnect, getConnectionStatus, getDeviceStatus, getDeviceInfo, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect };

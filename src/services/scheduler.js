@@ -252,6 +252,15 @@ function getTaskDetails(taskName) {
   };
 }
 
+/**
+ * Get scheduler status for API responses
+ * Alias for getSchedulerStats to provide consistent naming
+ * @returns {{running: boolean, taskCount: number}}
+ */
+function getSchedulerStatus() {
+  return getSchedulerStats();
+}
+
 export {
   registerTask,
   getRegisteredTasks,
@@ -260,6 +269,7 @@ export {
   startScheduler,
   stopScheduler,
   getSchedulerStats,
+  getSchedulerStatus,
   isSchedulerRunning,
   updateTaskStatus,
   getTaskDetails,

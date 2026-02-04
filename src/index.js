@@ -18,6 +18,8 @@ program
 program
   .command('start')
   .description('Start the scheduler service')
+  .option('--web', 'Enable Web UI server')
+  .option('--web-port <port>', 'Web server port (default: 3000)')
   .action(startCommand);
 
 program

@@ -6,6 +6,9 @@ import { connect, disconnect, getDevice } from '../services/adb-client.js';
 import { startScheduler, stopScheduler, recordExecution } from '../services/scheduler.js';
 import { executeTask } from '../services/executor.js';
 import { logger } from '../utils/logger.js';
+import { WebServer } from '../web/server.js';
+
+let webServer = null;
 
 /**
  * Graceful shutdown handler
@@ -13,6 +16,12 @@ import { logger } from '../utils/logger.js';
  */
 async function gracefulShutdown(signal) {
   logger.info(`Received ${signal}, shutting down...`);
+
+  // Stop web server first (closes WebSocket connections)
+  if (webServer) {
+    await webServer.stop();
+    webServer = null;
+  }
 
   stopScheduler();
   await disconnect();
@@ -24,11 +33,18 @@ async function gracefulShutdown(signal) {
 /**
  * Start the scheduler service
  * Loads config, connects to device, and starts task scheduling
+ * @param {object} options - Command options from commander
+ * @param {boolean} [options.web] - Enable Web UI server
+ * @param {string|number} [options.webPort] - Web server port
  */
-export async function startCommand() {
+export async function startCommand(options = {}) {
   try {
     // Load configuration
     const config = await loadConfig();
+
+    // Check if web server should be enabled
+    const webEnabled = options.web || process.env.ATV_WEB_ENABLED === 'true';
+    const webPort = options.webPort || parseInt(process.env.ATV_WEB_PORT || '3000', 10);
 
     // Connect to device
     const result = await connect(config.device.ip, config.device.port);
@@ -57,6 +73,13 @@ export async function startCommand() {
     const schedulerResult = startScheduler(config.tasks || [], executor);
 
     logger.info(`Scheduler started with ${schedulerResult.taskCount} tasks`);
+
+    // Start web server if enabled
+    if (webEnabled) {
+      webServer = new WebServer({ port: webPort });
+      await webServer.start();
+      logger.info(`Web UI enabled on port ${webPort}`);
+    }
 
     // Register signal handlers for graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));

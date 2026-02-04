@@ -20,6 +20,7 @@ output.md
 .env
 .env.local
 .env.*.local
+adb-keys/
 
 # Config (user-specific)
 config.json
