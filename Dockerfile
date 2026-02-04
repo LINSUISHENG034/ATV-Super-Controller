@@ -19,6 +19,10 @@ LABEL maintainer="Link"
 LABEL version="1.0.0"
 LABEL description="ATV-Super-Controller - Android TV scheduler and controller for automation over ADB TCP"
 
+# Install ADB tools for Android TV communication
+# Required by @devicefarmer/adbkit to connect to ADB server
+RUN apk add --no-cache android-tools
+
 # Add non-root user for security
 # NOTE: When mounting config volume, ensure host directory is readable by UID 1001
 #       or use `docker run --user $(id -u):$(id -g)` to match host user
@@ -42,6 +46,10 @@ COPY --chown=atvuser:atvuser config.example.json ./
 # Create directory for runtime config (will be mounted as volume)
 RUN mkdir -p /app/config && \
     chown -R atvuser:atvuser /app/config
+
+# Create ADB keys directory for persistent device authentication
+RUN mkdir -p /home/atvuser/.android && \
+    chown -R atvuser:atvuser /home/atvuser/.android
 
 # Switch to non-root user
 USER atvuser

@@ -12,6 +12,9 @@ services:
 
     volumes:
       - ./config:/app/config:ro
+      # ADB keys for persistent device authentication
+      # First connection requires manual approval on TV ("Always allow from this computer")
+      - ./adb-keys:/home/atvuser/.android
 
     healthcheck:
       test: ["CMD", "node", "src/health-check.js"]
