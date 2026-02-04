@@ -1,0 +1,42 @@
+
+> atv-super-controller@1.0.0 test
+> vitest run tests/utils/health-check.test.js
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mE:/Projects/ATV-Super-Controller[39m
+
+[90mstdout[2m | tests/utils/health-check.test.js[2m > [22m[2mhealth-check.js[2m > [22m[2mhealthy state[2m > [22m[2mshould exit with code 0 when device is reachable
+[22m[39m{"status":"healthy","device":"192.168.0.145:5555","timestamp":"2026-02-04T05:34:12.127Z"}
+{"status":"unhealthy","error":"process.exit unexpectedly called with \"0\"","timestamp":"2026-02-04T05:34:12.127Z"}
+
+ [32m✓[39m tests/utils/health-check.test.js [2m([22m[2m6 tests[22m[2m)[22m[33m 5040[2mms[22m[39m
+       [33m[2m✓[22m[39m should timeout after 5 seconds when connection hangs [33m 5018[2mms[22m[39m
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: process.exit unexpectedly called with "1"
+ ❯ process.exit node_modules/vitest/dist/chunks/startModuleRunner.DEj0jb3e.js:766:9
+ ❯ healthCheck src/health-check.js:59:13
+
+     57|       timestamp: new Date().toISOString()
+     58|     }));
+     59|     process.exit(1);
+       |             ^
+     60|   }
+     61| }
+
+This error originated in "tests/utils/health-check.test.js" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should exit with code 0 when device is reachable". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+[2m      Tests [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+
+[2m     Errors [22m [1m[31m1 error[39m[22m
+[2m   Start at [22m 13:34:11
+[2m   Duration [22m 5.64s[2m (transform 107ms, setup 0ms, import 424ms, tests 5.04s, environment 0ms)[22m
+

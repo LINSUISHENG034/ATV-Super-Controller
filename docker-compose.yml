@@ -1,0 +1,21 @@
+services:
+  atv-super-controller:
+    image: atv-super-controller:latest
+    container_name: atv-super-controller
+    restart: unless-stopped
+    command: ["start"]
+
+    environment:
+      - ATV_DEVICE_IP=${ATV_DEVICE_IP}
+      - ATV_DEVICE_PORT=${ATV_DEVICE_PORT:-5555}
+      - ATV_LOG_LEVEL=${ATV_LOG_LEVEL:-info}
+
+    volumes:
+      - ./config:/app/config:ro
+
+    healthcheck:
+      test: ["CMD", "node", "src/health-check.js"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3

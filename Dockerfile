@@ -46,10 +46,10 @@ RUN mkdir -p /app/config && \
 # Switch to non-root user
 USER atvuser
 
-# Health check - verify CLI is actually responsive by running --version
-# This validates that Node.js and the CLI entry point are working correctly
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node src/index.js --version || exit 1
+# Health check - verify ADB device connectivity
+# This validates actual device connection, not just CLI responsiveness
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD ["node", "src/health-check.js"]
 
 # Set default environment variables
 ENV NODE_ENV=production
