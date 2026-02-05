@@ -4,7 +4,7 @@
 import { loadConfig } from '../utils/config.js';
 import { connect, disconnect, getDevice } from '../services/adb-client.js';
 import { startScheduler, stopScheduler, recordExecution } from '../services/scheduler.js';
-import { executeTask } from '../services/executor.js';
+import { executeTask, setActionContext } from '../services/executor.js';
 import { logger } from '../utils/logger.js';
 import { WebServer } from '../web/server.js';
 
@@ -60,6 +60,9 @@ export async function startCommand(options = {}) {
     const context = {
       youtube: config.youtube
     };
+
+    // Set global context for Web API calls (executeAction uses this)
+    setActionContext(context);
 
     // Task executor callback
     const executor = async (task) => {

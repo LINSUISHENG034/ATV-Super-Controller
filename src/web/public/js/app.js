@@ -21,6 +21,8 @@ function appData() {
     volumeDebounceTimer: null,
     serviceVersion: '0.0.0',
     serviceUptime: 0,
+    showYoutubeModal: false,
+    youtubeUrl: '',
 
     // Navigation Items
     navItems: [
@@ -214,7 +216,7 @@ function appData() {
       let body = {};
 
       if (action === 'youtube') {
-        endpoint = '/api/v1/actions/launch';
+        endpoint = '/api/v1/actions/launch-app';
         body = { package: 'com.google.android.youtube' };
       }
 
@@ -240,6 +242,42 @@ function appData() {
       } catch (error) {
         this.showToast('Network Error');
         this.addLog(`Network error triggering ${action}`, 'ERROR');
+      }
+    },
+
+    /**
+     * Play YouTube video from URL or launch YouTube app
+     */
+    async playYoutubeVideo() {
+      const url = this.youtubeUrl.trim();
+      this.showYoutubeModal = false;
+      this.youtubeUrl = '';
+
+      // If no URL provided, just launch YouTube app
+      if (!url) {
+        return this.triggerAction('youtube');
+      }
+
+      try {
+        this.showToast('Playing video...');
+        const res = await fetch('/api/v1/actions/play-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast('Video playing');
+          this.addLog(`Playing YouTube video`, 'INFO');
+        } else {
+          this.showToast(`Error: ${data.error.message}`);
+          this.addLog(`Play video failed: ${data.error.message}`, 'ERROR');
+        }
+      } catch (error) {
+        this.showToast('Network Error');
+        this.addLog('Network error playing video', 'ERROR');
       }
     },
 

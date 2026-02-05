@@ -15,6 +15,9 @@ const BACKOFF_MULTIPLIER = 2; // Exponential backoff base
 const activityLog = [];
 const MAX_ACTIVITY_LOG = 20;
 
+// Global action context (set at startup, used by executeAction for Web API calls)
+let actionContext = {};
+
 /**
  * Get recent activity log
  * @returns {Array} List of recent activities
@@ -235,7 +238,25 @@ async function executeAction(device, actionName, params = {}) {
     actions: [{ type: actionName, ...params }]
   };
   
-  return await executeTask(task, device, {});
+  // Use the global context (contains youtube config etc.)
+  return await executeTask(task, device, actionContext);
 }
 
-export { executeTask, retryWithBackoff, getRetryConfig, executeAction, getActivityLog };
+/**
+ * Set the action context for Web API calls
+ * Called at startup to provide youtube config etc.
+ * @param {object} context - Context object with config
+ */
+function setActionContext(context) {
+  actionContext = context || {};
+}
+
+/**
+ * Get the current action context
+ * @returns {object} Current context
+ */
+function getActionContext() {
+  return actionContext;
+}
+
+export { executeTask, retryWithBackoff, getRetryConfig, executeAction, getActivityLog, setActionContext, getActionContext };
