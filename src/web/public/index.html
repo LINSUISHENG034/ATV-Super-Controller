@@ -525,39 +525,67 @@
           <div
             x-show="activeTab === 'logs'"
             x-transition.opacity
+            x-init="$watch('activeTab', val => { if (val === 'logs') loadLogs(); })"
             class="h-full flex flex-col"
           >
-            <div class="flex items-center gap-2 mb-3">
+            <!-- Filter Buttons -->
+            <div class="flex gap-2 mb-4">
               <button
-                class="text-xs bg-gray-700 px-3 py-1.5 rounded-lg text-white border border-gray-600 cursor-pointer hover:bg-gray-600 transition-colors focus-ring"
+                @click="setLogFilter('all')"
+                :class="logFilter === 'all' ? 'bg-primary-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer focus-ring"
               >
                 All
               </button>
+              <button
+                @click="setLogFilter('info')"
+                :class="logFilter === 'info' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer focus-ring"
+              >
+                Info
+              </button>
+              <button
+                @click="setLogFilter('warn')"
+                :class="logFilter === 'warn' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer focus-ring"
+              >
+                Warn
+              </button>
+              <button
+                @click="setLogFilter('error')"
+                :class="logFilter === 'error' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer focus-ring"
+              >
+                Error
+              </button>
+              <button
+                @click="setLogFilter('debug')"
+                :class="logFilter === 'debug' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-colors cursor-pointer focus-ring"
+              >
+                Debug
+              </button>
             </div>
+
+            <!-- Terminal Log Display -->
             <div
-              class="flex-1 bg-gray-950 rounded-xl border border-gray-800 p-4 font-mono text-sm overflow-y-auto shadow-inner custom-scrollbar"
+              x-ref="logContainer"
+              class="flex-1 bg-gray-950 rounded-lg border border-gray-800 p-4 font-mono text-sm overflow-y-auto max-h-[calc(100vh-200px)]"
             >
-              <div class="space-y-1.5">
-                <template x-for="log in logs">
-                  <div class="flex gap-2 leading-relaxed">
-                    <span
-                      class="text-gray-600 select-none shrink-0"
-                      x-text="log.time"
-                    ></span>
-                    <span
-                      class="shrink-0 w-12"
-                      :class="{
-                                        'text-green-400': log.type === 'INFO',
-                                        'text-yellow-400': log.type === 'WARN',
-                                        'text-red-400 font-semibold': log.type === 'ERROR',
-                                        'text-blue-400': log.type === 'DEBUG'
-                                    }"
-                      x-text="log.type"
-                    ></span>
-                    <span class="text-gray-300" x-text="log.message"></span>
-                  </div>
-                </template>
-                <div class="text-primary-400 blink">_</div>
+              <template x-for="(log, index) in filteredLogs" :key="log.timestamp + '-' + index">
+                <div class="flex gap-2 leading-relaxed">
+                  <span class="text-gray-500 text-xs shrink-0" x-text="formatLogTime(log.timestamp)"></span>
+                  <span
+                    class="shrink-0 w-12 text-xs font-medium"
+                    :class="getLogLevelClass(log.level)"
+                    x-text="log.level"
+                  ></span>
+                  <span class="text-gray-200" x-text="log.message"></span>
+                </div>
+              </template>
+              <!-- Blinking cursor for live streaming -->
+              <div x-show="isStreaming" class="flex items-center gap-1 mt-1">
+                <span class="w-2 h-4 bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
               </div>
             </div>
           </div>

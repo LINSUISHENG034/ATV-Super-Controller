@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { logger } from '../utils/logger.js';
+import { logger, logEmitter } from '../utils/logger.js';
 import { registerRoutes } from './routes/index.js';
 import { WebSocketHandler, WS_READY_STATE } from './websocket/handler.js';
 import { onBroadcast, clearBroadcastListeners } from './websocket/broadcaster.js';
@@ -37,6 +37,7 @@ export class WebServer {
     this.wsHandler = new WebSocketHandler();
     this.wsClients = new Set();
     this._unsubscribeBroadcast = null;
+    this._logHandler = null;
   }
 
   /**
@@ -71,6 +72,12 @@ export class WebServer {
       this._broadcastToSubscribers(event);
     });
 
+    // Subscribe to log events for real-time streaming
+    this._logHandler = (logEntry) => {
+      this._broadcastLogEntry(logEntry);
+    };
+    logEmitter.on('log', this._logHandler);
+
     // Start listening
     await new Promise((resolve, reject) => {
       this.server.listen(this.port, this.host, (err) => {
@@ -98,6 +105,12 @@ export class WebServer {
     if (this._unsubscribeBroadcast) {
       this._unsubscribeBroadcast();
       this._unsubscribeBroadcast = null;
+    }
+
+    // Unsubscribe from log events
+    if (this._logHandler) {
+      logEmitter.off('log', this._logHandler);
+      this._logHandler = null;
     }
 
     // Close all WebSocket connections
@@ -194,7 +207,32 @@ export class WebServer {
     // Extract channel from event type (e.g., 'status:device:connected' -> 'status')
     const channel = event.type.split(':')[0];
     const subscribers = this.wsHandler.getSubscribers(channel);
-    
+
+    const payload = JSON.stringify(event);
+    for (const ws of subscribers) {
+      ws.send(payload);
+    }
+  }
+
+  /**
+   * Broadcast log entry to clients subscribed to 'logs' channel
+   * @param {object} logEntry - Log entry with timestamp, level, message
+   * @private
+   */
+  _broadcastLogEntry(logEntry) {
+    const subscribers = this.wsHandler.getSubscribers('logs');
+    if (subscribers.length === 0) return;
+
+    const event = {
+      type: 'log:entry',
+      channel: 'logs',
+      data: {
+        level: logEntry.level,
+        message: logEntry.message
+      },
+      timestamp: logEntry.timestamp
+    };
+
     const payload = JSON.stringify(event);
     for (const ws of subscribers) {
       ws.send(payload);

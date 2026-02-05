@@ -5,6 +5,7 @@
 import { getDeviceStatus, getDevice, connect, reconnect } from '../../services/adb-client.js';
 import { getSchedulerStatus, getJobs, setTaskEnabled, getTaskDetails } from '../../services/scheduler.js';
 import { executeAction, executeTask, getActivityLog } from '../../services/executor.js';
+import { getRecentLogs } from '../../utils/logger.js';
 import { createRequire } from 'module';
 
 // Use createRequire to import package.json (synchronous but at module load time)
@@ -404,6 +405,47 @@ export function registerApiRoutes(app) {
               }
           });
       }
+  });
+
+  // --- Story 6.5: Log Viewer Endpoint ---
+
+  /**
+   * GET /api/v1/logs
+   * Retrieve recent logs with optional filtering
+   */
+  app.get('/api/v1/logs', (req, res) => {
+    try {
+      const { level, limit, since } = req.query;
+
+      // Parse limit (default 100, max 500)
+      let parsedLimit = 100;
+      if (limit !== undefined) {
+        parsedLimit = parseInt(limit, 10);
+        if (isNaN(parsedLimit) || parsedLimit < 1) {
+          parsedLimit = 100;
+        }
+      }
+
+      const result = getRecentLogs({
+        level: level || undefined,
+        limit: parsedLimit,
+        since: since || undefined
+      });
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'LOGS_ERROR',
+          message: 'Failed to retrieve logs',
+          details: { reason: error.message }
+        }
+      });
+    }
   });
 
 }

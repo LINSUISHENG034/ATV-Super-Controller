@@ -12,6 +12,8 @@ function appData() {
     tasks: [],
     recentActivity: [],
     logs: [],
+    logFilter: 'all',
+    isStreaming: false,
     toast: { visible: false, message: '' },
     ws: null,
     volumeSlider: 50,
@@ -102,9 +104,10 @@ function appData() {
 
       this.ws.onopen = () => {
         console.log('WebSocket connected');
-        this.addLog('WebSocket connected', 'DEBUG');
+        this.isStreaming = true;
         this.ws.send(JSON.stringify({ type: 'subscribe', channel: 'status' }));
         this.ws.send(JSON.stringify({ type: 'subscribe', channel: 'tasks' }));
+        this.ws.send(JSON.stringify({ type: 'subscribe', channel: 'logs' }));
       };
 
       this.ws.onmessage = (event) => {
@@ -118,7 +121,7 @@ function appData() {
 
       this.ws.onclose = () => {
         console.log('WebSocket disconnected. Reconnecting in 5s...');
-        this.addLog('WebSocket disconnected', 'WARN');
+        this.isStreaming = false;
         setTimeout(() => this.connectWebSocket(), 5000);
       };
 
@@ -183,7 +186,10 @@ function appData() {
       else if (message.type === 'task:enabled' || message.type === 'task:disabled') {
         // Refresh task list when task is enabled/disabled
         this.fetchTasks();
-        this.addLog(`Task ${message.data.taskName} ${message.type === 'task:enabled' ? 'enabled' : 'disabled'}`, 'INFO');
+      }
+      else if (message.type === 'log:entry') {
+        // Handle real-time log streaming
+        this.appendLog(message);
       }
     },
 
@@ -257,12 +263,112 @@ function appData() {
     },
 
     /**
-     * Add local log (for Logs tab)
+     * Load logs from server API
      */
-    addLog(message, type = 'INFO') {
-      const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
-      this.logs.unshift({ time: `[${time}]`, type, message });
-      if (this.logs.length > 50) this.logs.pop();
+    async loadLogs() {
+      try {
+        const res = await fetch('/api/v1/logs?limit=100');
+        const data = await res.json();
+        if (data.success) {
+          this.logs = data.data.logs;
+          this.scrollLogsToBottom();
+        }
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+      }
+    },
+
+    /**
+     * Set log filter level
+     * @param {string} level - Filter level (all, info, warn, error, debug)
+     */
+    setLogFilter(level) {
+      this.logFilter = level;
+    },
+
+    /**
+     * Get filtered logs based on current filter
+     */
+    get filteredLogs() {
+      if (this.logFilter === 'all') {
+        return this.logs;
+      }
+      const upperFilter = this.logFilter.toUpperCase();
+      return this.logs.filter(log => log.level === upperFilter);
+    },
+
+    /**
+     * Append a new log entry from WebSocket
+     * @param {object} message - WebSocket log:entry message
+     */
+    appendLog(message) {
+      const entry = {
+        timestamp: message.timestamp,
+        level: message.data.level,
+        message: message.data.message
+      };
+      this.logs.push(entry);
+      // Keep buffer size limited
+      if (this.logs.length > 500) {
+        this.logs.shift();
+      }
+      this.scrollLogsToBottom();
+    },
+
+    /**
+     * Format log timestamp for display
+     * @param {string} timestamp - ISO timestamp
+     * @returns {string} Formatted time string
+     */
+    formatLogTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString('en-GB', { hour12: false });
+    },
+
+    /**
+     * Get CSS class for log level
+     * @param {string} level - Log level
+     * @returns {string} Tailwind CSS classes
+     */
+    getLogLevelClass(level) {
+      const classes = {
+        'INFO': 'text-green-400',
+        'WARN': 'text-yellow-400',
+        'ERROR': 'text-red-400 font-semibold',
+        'DEBUG': 'text-blue-400'
+      };
+      return classes[level] || 'text-gray-400';
+    },
+
+    /**
+     * Scroll log container to bottom
+     */
+    scrollLogsToBottom() {
+      this.$nextTick(() => {
+        const container = this.$refs.logContainer;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    },
+
+    /**
+     * Add a client-side log entry to the logs array
+     * @param {string} message - Log message
+     * @param {string} level - Log level (INFO, WARN, ERROR, DEBUG)
+     */
+    addLog(message, level = 'INFO') {
+      const entry = {
+        timestamp: new Date().toISOString(),
+        level: level.toUpperCase(),
+        message
+      };
+      this.logs.push(entry);
+      // Keep buffer size limited
+      if (this.logs.length > 500) {
+        this.logs.shift();
+      }
+      this.scrollLogsToBottom();
     },
 
     /**

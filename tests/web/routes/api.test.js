@@ -25,6 +25,10 @@ vi.mock('../../../src/services/executor.js', () => ({
   getActivityLog: vi.fn(() => [])
 }));
 
+vi.mock('../../../src/utils/logger.js', () => ({
+  getRecentLogs: vi.fn(() => ({ logs: [], hasMore: false }))
+}));
+
 // Mock module.createRequire for api.js
 vi.mock('module', () => ({
   createRequire: () => () => ({ version: '1.0.0' })
@@ -49,14 +53,14 @@ describe('API Routes', () => {
   });
 
   // Helper to simulate request
-  async function request(method, path, body = {}, params = {}) {
+  async function request(method, path, body = {}, params = {}, query = {}) {
     const handler = routes[method + ' ' + path];
     if (!handler) {
         console.log(`Route not found: ${method} ${path}. Available: ${Object.keys(routes)}`);
-        return null; 
+        return null;
     }
-    
-    const req = { body, params };
+
+    const req = { body, params, query };
     const res = {
       json: vi.fn(),
       status: vi.fn().mockReturnThis()
@@ -536,6 +540,112 @@ describe('API Routes', () => {
                       success: true
                   }));
               }
+          });
+      });
+  });
+
+  // Story 6.5: Log Viewer Tests
+  describe('Log Viewer (Story 6.5)', () => {
+      describe('GET /api/v1/logs', () => {
+          it('should return logs with default parameters', async () => {
+              const getRecentLogs = (await import('../../../src/utils/logger.js')).getRecentLogs;
+              getRecentLogs.mockReturnValue({
+                  logs: [
+                      { timestamp: '2026-02-05T10:00:00Z', level: 'INFO', message: 'Test log' }
+                  ],
+                  hasMore: false
+              });
+
+              const res = await request('GET', '/api/v1/logs');
+              expect(res).not.toBeNull();
+
+              expect(getRecentLogs).toHaveBeenCalledWith({
+                  level: undefined,
+                  limit: 100,
+                  since: undefined
+              });
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: true,
+                  data: expect.objectContaining({
+                      logs: expect.any(Array),
+                      hasMore: false
+                  })
+              }));
+          });
+
+          it('should filter logs by level', async () => {
+              const getRecentLogs = (await import('../../../src/utils/logger.js')).getRecentLogs;
+              getRecentLogs.mockReturnValue({ logs: [], hasMore: false });
+
+              const res = await request('GET', '/api/v1/logs', {}, {}, { level: 'error' });
+              expect(res).not.toBeNull();
+
+              expect(getRecentLogs).toHaveBeenCalledWith({
+                  level: 'error',
+                  limit: 100,
+                  since: undefined
+              });
+          });
+
+          it('should respect limit query parameter', async () => {
+              const getRecentLogs = (await import('../../../src/utils/logger.js')).getRecentLogs;
+              getRecentLogs.mockReturnValue({ logs: [], hasMore: false });
+
+              const res = await request('GET', '/api/v1/logs', {}, {}, { limit: '50' });
+              expect(res).not.toBeNull();
+
+              expect(getRecentLogs).toHaveBeenCalledWith({
+                  level: undefined,
+                  limit: 50,
+                  since: undefined
+              });
+          });
+
+          it('should use default limit for invalid values', async () => {
+              const getRecentLogs = (await import('../../../src/utils/logger.js')).getRecentLogs;
+              getRecentLogs.mockReturnValue({ logs: [], hasMore: false });
+
+              const res = await request('GET', '/api/v1/logs', {}, {}, { limit: 'invalid' });
+              expect(res).not.toBeNull();
+
+              expect(getRecentLogs).toHaveBeenCalledWith({
+                  level: undefined,
+                  limit: 100,
+                  since: undefined
+              });
+          });
+
+          it('should filter logs by since timestamp', async () => {
+              const getRecentLogs = (await import('../../../src/utils/logger.js')).getRecentLogs;
+              getRecentLogs.mockReturnValue({ logs: [], hasMore: false });
+
+              const since = '2026-02-05T09:00:00Z';
+              const res = await request('GET', '/api/v1/logs', {}, {}, { since });
+              expect(res).not.toBeNull();
+
+              expect(getRecentLogs).toHaveBeenCalledWith({
+                  level: undefined,
+                  limit: 100,
+                  since
+              });
+          });
+
+          it('should handle errors gracefully', async () => {
+              const getRecentLogs = (await import('../../../src/utils/logger.js')).getRecentLogs;
+              getRecentLogs.mockImplementation(() => {
+                  throw new Error('Buffer error');
+              });
+
+              const res = await request('GET', '/api/v1/logs');
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(500);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'LOGS_ERROR'
+                  })
+              }));
           });
       });
   });
