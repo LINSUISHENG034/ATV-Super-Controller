@@ -11,7 +11,9 @@ vi.mock('../../../src/services/adb-client.js', () => ({
 
 vi.mock('../../../src/services/scheduler.js', () => ({
   getSchedulerStatus: vi.fn(() => ({ running: true })),
-  getJobs: vi.fn(() => [])
+  getJobs: vi.fn(() => []),
+  setTaskEnabled: vi.fn((name, enabled) => ({ name, enabled })),
+  getTaskDetails: vi.fn((name) => ({ name, schedule: '0 0 * * *', actions: [] }))
 }));
 
 vi.mock('../../../src/actions/index.js', () => ({
@@ -19,6 +21,7 @@ vi.mock('../../../src/actions/index.js', () => ({
 
 vi.mock('../../../src/services/executor.js', () => ({
   executeAction: vi.fn(),
+  executeTask: vi.fn(),
   getActivityLog: vi.fn(() => [])
 }));
 
@@ -35,7 +38,8 @@ describe('API Routes', () => {
     routes = {};
     app = {
       get: vi.fn((path, handler) => routes['GET ' + path] = handler),
-      post: vi.fn((path, handler) => routes['POST ' + path] = handler)
+      post: vi.fn((path, handler) => routes['POST ' + path] = handler),
+      patch: vi.fn((path, handler) => routes['PATCH ' + path] = handler)
     };
     
     // reset mocks
@@ -165,6 +169,208 @@ describe('API Routes', () => {
               success: true,
               data: expect.any(Array)
           }));
+      });
+  });
+
+  // Story 6.3: Task Management Tests
+  describe('Task Management (Story 6.3)', () => {
+      describe('PATCH /api/v1/tasks/:name', () => {
+          it('should enable a task', async () => {
+              const setTaskEnabled = (await import('../../../src/services/scheduler.js')).setTaskEnabled;
+              setTaskEnabled.mockReturnValue({ name: 'test-task', enabled: true });
+
+              const res = await request('PATCH', '/api/v1/tasks/:name', { enabled: true }, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(setTaskEnabled).toHaveBeenCalledWith('test-task', true);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: true,
+                  data: expect.objectContaining({
+                      name: 'test-task',
+                      enabled: true
+                  })
+              }));
+          });
+
+          it('should disable a task', async () => {
+              const setTaskEnabled = (await import('../../../src/services/scheduler.js')).setTaskEnabled;
+              setTaskEnabled.mockReturnValue({ name: 'test-task', enabled: false });
+
+              const res = await request('PATCH', '/api/v1/tasks/:name', { enabled: false }, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(setTaskEnabled).toHaveBeenCalledWith('test-task', false);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: true,
+                  data: expect.objectContaining({
+                      enabled: false
+                  })
+              }));
+          });
+
+          it('should return validation error when enabled is not a boolean', async () => {
+              const res = await request('PATCH', '/api/v1/tasks/:name', { enabled: 'yes' }, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(400);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'VALIDATION_ERROR'
+                  })
+              }));
+          });
+
+          it('should return TASK_NOT_FOUND when task does not exist', async () => {
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+              getTaskDetails.mockReturnValue(null);
+
+              const res = await request('PATCH', '/api/v1/tasks/:name', { enabled: true }, { name: 'non-existent' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(404);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'TASK_NOT_FOUND'
+                  })
+              }));
+          });
+
+          it('should handle toggle error and rollback on failure', async () => {
+              const setTaskEnabled = (await import('../../../src/services/scheduler.js')).setTaskEnabled;
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+
+              // Mock task as existing
+              getTaskDetails.mockReturnValue({ name: 'test-task', schedule: '0 0 * * *', actions: [] });
+              setTaskEnabled.mockImplementation(() => {
+                  throw new Error('Scheduler error');
+              });
+
+              const res = await request('PATCH', '/api/v1/tasks/:name', { enabled: true }, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(500);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'TASK_TOGGLE_ERROR'
+                  })
+              }));
+          });
+      });
+
+      describe('POST /api/v1/tasks/:name/run', () => {
+          it('should run a task immediately when device is connected', async () => {
+              const executeTask = (await import('../../../src/services/executor.js')).executeTask;
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+
+              // Ensure device is "connected" and task exists
+              getDevice.mockReturnValue({ shell: vi.fn() });
+              getTaskDetails.mockReturnValue({ name: 'test-task', schedule: '0 0 * * *', actions: [] });
+
+              executeTask.mockResolvedValue({ success: true, status: 'completed', duration: 100 });
+
+              const res = await request('POST', '/api/v1/tasks/:name/run', {}, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(executeTask).toHaveBeenCalled();
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: true,
+                  data: expect.objectContaining({
+                      taskName: 'test-task',
+                      status: 'triggered'
+                  })
+              }));
+          });
+
+          it('should return DEVICE_DISCONNECTED when no device connected', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              getDevice.mockReturnValue(null);
+
+              const res = await request('POST', '/api/v1/tasks/:name/run', {}, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(503);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'DEVICE_DISCONNECTED'
+                  })
+              }));
+          });
+
+          it('should return TASK_NOT_FOUND when task does not exist', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+
+              // Ensure device is "connected"
+              getDevice.mockReturnValue({ shell: vi.fn() });
+              getTaskDetails.mockReturnValue(null);
+
+              const res = await request('POST', '/api/v1/tasks/:name/run', {}, { name: 'non-existent' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(404);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'TASK_NOT_FOUND'
+                  })
+              }));
+          });
+
+          it('should handle task execution failure', async () => {
+              const executeTask = (await import('../../../src/services/executor.js')).executeTask;
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+
+              // Ensure device is "connected" and task exists
+              getDevice.mockReturnValue({ shell: vi.fn() });
+              getTaskDetails.mockReturnValue({ name: 'test-task', schedule: '0 0 * * *', actions: [] });
+
+              executeTask.mockResolvedValue({
+                  success: false,
+                  status: 'failed',
+                  error: 'Action failed',
+                  failedAction: 'wake'
+              });
+
+              const res = await request('POST', '/api/v1/tasks/:name/run', {}, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(500);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'TASK_EXECUTION_FAILED'
+                  })
+              }));
+          });
+
+          it('should handle network errors when running task', async () => {
+              const executeTask = (await import('../../../src/services/executor.js')).executeTask;
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+
+              // Ensure device is "connected" and task exists
+              getDevice.mockReturnValue({ shell: vi.fn() });
+              getTaskDetails.mockReturnValue({ name: 'test-task', schedule: '0 0 * * *', actions: [] });
+
+              executeTask.mockRejectedValue(new Error('Network error'));
+
+              const res = await request('POST', '/api/v1/tasks/:name/run', {}, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(500);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'TASK_RUN_ERROR'
+                  })
+              }));
+          });
       });
   });
 });

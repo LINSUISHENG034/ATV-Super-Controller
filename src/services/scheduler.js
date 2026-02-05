@@ -15,6 +15,9 @@ const MAX_HISTORY_ENTRIES = 10;
 // Scheduler state
 let schedulerRunning = false;
 
+// Store the executor callback for task execution
+let executorCallback = null;
+
 /**
  * Register a task for scheduling
  * @param {object} task - Task configuration
@@ -106,6 +109,9 @@ function clearTasks() {
  * @returns {object} Result with success flag and task count
  */
 function startScheduler(tasks, executor) {
+  // Store executor callback for use in setTaskEnabled
+  executorCallback = executor;
+
   let registeredCount = 0;
 
   for (const task of tasks) {
@@ -267,7 +273,86 @@ function getSchedulerStatus() {
  * @returns {Array} List of tasks
  */
 function getJobs() {
-  return getRegisteredTasks();
+  return getRegisteredTasks().map(task => ({
+    name: task.name,
+    schedule: task.schedule,
+    nextRun: task.nextRun ? new Date(task.nextRun).toLocaleString() : 'Disabled',
+    enabled: task.job !== null, // Task is enabled if it has an active job
+    actions: task.actions,
+    lastRunStatus: task.lastRunStatus,
+    lastRunTime: task.lastRunTime ? new Date(task.lastRunTime).toLocaleString() : null
+  }));
+}
+
+/**
+ * Set task enabled/disabled state
+ * @param {string} taskName - Name of the task
+ * @param {boolean} enabled - Whether to enable or disable the task
+ * @returns {{name: string, enabled: boolean}} Result with new state
+ */
+function setTaskEnabled(taskName, enabled) {
+  const task = registeredTasks.get(taskName);
+
+  if (!task) {
+    throw new Error('TASK_NOT_FOUND');
+  }
+
+  if (enabled) {
+    // Reschedule the task - create new job
+    if (task.job) {
+      task.job.cancel(); // Cancel existing job first
+    }
+
+    // Create new job with executor callback
+    const taskObj = {
+      name: task.name,
+      schedule: task.schedule,
+      actions: task.actions
+    };
+
+    const newJob = schedule.scheduleJob(task.schedule, async () => {
+      logger.info(`Task triggered: ${taskName}`);
+      if (executorCallback) {
+        await executorCallback(taskObj);
+      }
+    });
+
+    if (!newJob) {
+      throw new Error('Failed to reschedule job');
+    }
+
+    task.job = newJob;
+    task.nextRun = newJob.nextInvocation();
+
+    // Emit event for WebSocket broadcast (async, with error handling)
+    import('../web/websocket/broadcaster.js')
+      .then(({ emitEvent }) => {
+        emitEvent('task:enabled', { taskName, enabled: true });
+      })
+      .catch((err) => {
+        logger.warn(`Failed to emit task:enabled event: ${err.message}`);
+      });
+  } else {
+    // Cancel the job but keep the task in registry
+    if (task.job) {
+      task.job.cancel();
+      task.job = null;
+    }
+    task.nextRun = null;
+
+    // Emit event for WebSocket broadcast (async, with error handling)
+    import('../web/websocket/broadcaster.js')
+      .then(({ emitEvent }) => {
+        emitEvent('task:disabled', { taskName, enabled: false });
+      })
+      .catch((err) => {
+        logger.warn(`Failed to emit task:disabled event: ${err.message}`);
+      });
+  }
+
+  logger.info(`Task ${taskName} ${enabled ? 'enabled' : 'disabled'}`);
+
+  return { name: taskName, enabled };
 }
 
 export {
@@ -283,5 +368,6 @@ export {
   updateTaskStatus,
   getTaskDetails,
   recordExecution,
-  getJobs
+  getJobs,
+  setTaskEnabled
 };

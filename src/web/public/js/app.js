@@ -35,6 +35,7 @@ function appData() {
 
       // Refresh status periodically as fallback
       setInterval(() => this.fetchStatus(), 30000);
+      setInterval(() => this.fetchTasks(), 60000); // Refresh tasks every minute
     },
 
     /**
@@ -132,7 +133,7 @@ function appData() {
         this.deviceIp = message.data.target;
         this.showToast('Device Connected');
         this.addLog(`Connected to ${message.data.target}`, 'INFO');
-      } 
+      }
       else if (message.type === 'status:device:disconnected') {
         this.isConnected = false;
         this.deviceIp = 'Disconnected';
@@ -141,13 +142,45 @@ function appData() {
       }
       else if (message.type === 'task:completed') {
         this.fetchActivity(); // Refresh activity log
+        this.fetchTasks(); // Refresh task list for updated next run times
         this.showToast(`Task Completed: ${message.data.task}`);
         this.addLog(`Task completed: ${message.data.task}`, 'INFO');
+
+        // Update task status in list
+        const task = this.tasks.find(t => t.name === message.data.task);
+        if (task) {
+          task.lastStatus = 'completed';
+          task.lastRunTime = new Date().toLocaleTimeString();
+          task.running = false;
+        }
       }
       else if (message.type === 'task:failed') {
         this.fetchActivity(); // Refresh activity log
+        this.fetchTasks(); // Refresh task list
         this.showToast(`Task Failed: ${message.data.task}`);
         this.addLog(`Task failed: ${message.data.task}`, 'ERROR');
+
+        // Update task status in list
+        const task = this.tasks.find(t => t.name === message.data.task);
+        if (task) {
+          task.lastStatus = 'failed';
+          task.lastRunTime = new Date().toLocaleTimeString();
+          task.running = false;
+        }
+      }
+      else if (message.type === 'task:triggered') {
+        this.addLog(`Task triggered: ${message.data.taskName}`, 'INFO');
+
+        // Update task running state
+        const task = this.tasks.find(t => t.name === message.data.taskName);
+        if (task) {
+          task.running = true;
+        }
+      }
+      else if (message.type === 'task:enabled' || message.type === 'task:disabled') {
+        // Refresh task list when task is enabled/disabled
+        this.fetchTasks();
+        this.addLog(`Task ${message.data.taskName} ${message.type === 'task:enabled' ? 'enabled' : 'disabled'}`, 'INFO');
       }
     },
 
@@ -227,6 +260,87 @@ function appData() {
       const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
       this.logs.unshift({ time: `[${time}]`, type, message });
       if (this.logs.length > 50) this.logs.pop();
+    },
+
+    /**
+     * Toggle task enabled/disabled
+     * @param {string} taskName - Name of the task to toggle
+     * @param {boolean} enabled - New enabled state
+     */
+    async toggleTask(taskName, enabled) {
+      const task = this.tasks.find(t => t.name === taskName);
+      if (!task) return;
+
+      // Optimistic UI update
+      const originalState = task.enabled;
+      task.enabled = enabled;
+      task.toggling = true;
+
+      try {
+        const res = await fetch(`/api/v1/tasks/${encodeURIComponent(taskName)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast(`Task ${taskName} ${enabled ? 'enabled' : 'disabled'}`);
+          this.addLog(`Task ${taskName} ${enabled ? 'enabled' : 'disabled'}`, 'INFO');
+        } else {
+          // Revert on error
+          task.enabled = originalState;
+          this.showToast(`Error: ${data.error.message}`);
+          this.addLog(`Toggle failed: ${data.error.message}`, 'ERROR');
+        }
+      } catch (error) {
+        // Revert on network error
+        task.enabled = originalState;
+        this.showToast('Network Error');
+        this.addLog(`Network error toggling task ${taskName}`, 'ERROR');
+      } finally {
+        task.toggling = false;
+      }
+    },
+
+    /**
+     * Run a task immediately
+     * @param {string} taskName - Name of the task to run
+     */
+    async runTask(taskName) {
+      const task = this.tasks.find(t => t.name === taskName);
+      if (!task) return;
+
+      if (task.running) {
+        this.showToast('Task already running');
+        return;
+      }
+
+      task.running = true;
+
+      try {
+        const res = await fetch(`/api/v1/tasks/${encodeURIComponent(taskName)}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast(`Task triggered: ${taskName}`);
+          this.addLog(`Manual trigger: ${taskName}`, 'INFO');
+          // Note: task.running will be reset by WebSocket task:completed/task:failed events
+        } else {
+          task.running = false;
+          this.showToast(`Error: ${data.error.message}`);
+          this.addLog(`Run failed: ${data.error.message}`, 'ERROR');
+        }
+      } catch (error) {
+        task.running = false;
+        this.showToast('Network Error');
+        this.addLog(`Network error running task ${taskName}`, 'ERROR');
+      }
     }
   }
 }

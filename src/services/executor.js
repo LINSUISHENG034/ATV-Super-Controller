@@ -111,6 +111,13 @@ async function executeTask(task, device, context = {}) {
   logTaskStart(task.name, task.actions || []);
   addActivityLog(`Started: ${task.name}`, 'INFO');
 
+  // Emit task:triggered event for WebSocket broadcast
+  emitEvent('task:triggered', {
+    taskName: task.name,
+    triggeredAt: new Date().toISOString(),
+    triggerType: 'manual'
+  });
+
   if (!task.actions || task.actions.length === 0) {
     logger.warn(`Task '${task.name}' has no actions to execute`);
   }

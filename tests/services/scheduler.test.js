@@ -10,7 +10,8 @@ import {
   updateTaskStatus,
   isSchedulerRunning,
   getTaskDetails,
-  recordExecution
+  recordExecution,
+  setTaskEnabled
 } from '../../src/services/scheduler.js';
 
 // Mock logger
@@ -532,6 +533,89 @@ describe('scheduler service', () => {
       const tasks = getRegisteredTasks();
       const task = tasks.find(t => t.name === 'validation-task');
       expect(task.executionHistory).toHaveLength(0);
+    });
+  });
+
+  // Story 6.3 Tests - Task Management (setTaskEnabled)
+  describe('setTaskEnabled - Story 6.3', () => {
+    beforeEach(() => {
+      // Start scheduler with a test task
+      startScheduler([
+        {
+          name: 'test-task',
+          schedule: '0 0 8 * * *',
+          actions: [{ type: 'wake' }]
+        }
+      ], vi.fn());
+    });
+
+    afterEach(() => {
+      stopScheduler();
+    });
+
+    it('should disable a task by cancelling its job', () => {
+      const result = setTaskEnabled('test-task', false);
+
+      expect(result.name).toBe('test-task');
+      expect(result.enabled).toBe(false);
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'test-task');
+      expect(task.job).toBeNull();
+      expect(task.nextRun).toBeNull();
+    });
+
+    it('should enable a task by creating a new job', () => {
+      // First disable the task
+      setTaskEnabled('test-task', false);
+
+      // Then enable it
+      const result = setTaskEnabled('test-task', true);
+
+      expect(result.name).toBe('test-task');
+      expect(result.enabled).toBe(true);
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'test-task');
+      expect(task.job).not.toBeNull();
+      expect(task.nextRun).not.toBeNull();
+    });
+
+    it('should throw TASK_NOT_FOUND for non-existent task', () => {
+      expect(() => {
+        setTaskEnabled('non-existent-task', true);
+      }).toThrow('TASK_NOT_FOUND');
+    });
+
+    it('should handle enabling an already enabled task', () => {
+      const result1 = setTaskEnabled('test-task', true);
+      expect(result1.enabled).toBe(true);
+
+      const tasks = getRegisteredTasks();
+      const task1 = tasks.find(t => t.name === 'test-task');
+      const originalNextRun = task1.nextRun;
+
+      // Enable again - should reschedule
+      const result2 = setTaskEnabled('test-task', true);
+      expect(result2.enabled).toBe(true);
+
+      const task2 = tasks.find(t => t.name === 'test-task');
+      expect(task2.job).not.toBeNull();
+      expect(task2.nextRun).not.toBeNull();
+    });
+
+    it('should handle disabling an already disabled task', () => {
+      // Disable the task
+      setTaskEnabled('test-task', false);
+
+      // Disable again - should be idempotent
+      const result = setTaskEnabled('test-task', false);
+      expect(result.enabled).toBe(false);
+
+      const tasks = getRegisteredTasks();
+      const task = tasks.find(t => t.name === 'test-task');
+      expect(task.job).toBeNull();
+      expect(task.nextRun).toBeNull();
     });
   });
 });
