@@ -373,4 +373,170 @@ describe('API Routes', () => {
           });
       });
   });
+
+  // Story 6.4: Remote Control Tests
+  describe('Remote Control (Story 6.4)', () => {
+      describe('POST /api/v1/remote/key', () => {
+          it('should send a valid keycode to the device', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const mockShell = vi.fn().mockResolvedValue({ on: vi.fn((event, cb) => { if (event === 'end') cb(); }) });
+              getDevice.mockReturnValue({ shell: mockShell });
+
+              const res = await request('POST', '/api/v1/remote/key', { keycode: 'KEYCODE_DPAD_UP' });
+              expect(res).not.toBeNull();
+
+              expect(mockShell).toHaveBeenCalledWith('input keyevent KEYCODE_DPAD_UP');
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: true,
+                  data: expect.objectContaining({
+                      keycode: 'KEYCODE_DPAD_UP',
+                      sent: true
+                  })
+              }));
+          });
+
+          it('should send KEYCODE_DPAD_CENTER for OK button', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const mockShell = vi.fn().mockResolvedValue({ on: vi.fn((event, cb) => { if (event === 'end') cb(); }) });
+              getDevice.mockReturnValue({ shell: mockShell });
+
+              const res = await request('POST', '/api/v1/remote/key', { keycode: 'KEYCODE_DPAD_CENTER' });
+              expect(res).not.toBeNull();
+
+              expect(mockShell).toHaveBeenCalledWith('input keyevent KEYCODE_DPAD_CENTER');
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: true
+              }));
+          });
+
+          it('should return VALIDATION_ERROR when keycode is missing', async () => {
+              const res = await request('POST', '/api/v1/remote/key', {});
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(400);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'VALIDATION_ERROR'
+                  })
+              }));
+          });
+
+          it('should return VALIDATION_ERROR when keycode is not a string', async () => {
+              const res = await request('POST', '/api/v1/remote/key', { keycode: 123 });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(400);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'VALIDATION_ERROR'
+                  })
+              }));
+          });
+
+          it('should return INVALID_KEYCODE for disallowed keycodes', async () => {
+              const res = await request('POST', '/api/v1/remote/key', { keycode: 'KEYCODE_POWER' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(400);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'INVALID_KEYCODE'
+                  })
+              }));
+          });
+
+          it('should return DEVICE_DISCONNECTED when no device connected', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              getDevice.mockReturnValue(null);
+
+              const res = await request('POST', '/api/v1/remote/key', { keycode: 'KEYCODE_DPAD_UP' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(503);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'DEVICE_DISCONNECTED'
+                  })
+              }));
+          });
+
+          it('should handle shell execution errors', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const mockShell = vi.fn().mockRejectedValue(new Error('ADB error'));
+              getDevice.mockReturnValue({ shell: mockShell });
+
+              const res = await request('POST', '/api/v1/remote/key', { keycode: 'KEYCODE_HOME' });
+              expect(res).not.toBeNull();
+
+              expect(res.status).toHaveBeenCalledWith(500);
+              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                  success: false,
+                  error: expect.objectContaining({
+                      code: 'KEY_SEND_ERROR'
+                  })
+              }));
+          });
+
+          it('should accept all navigation keycodes', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const mockShell = vi.fn().mockResolvedValue({ on: vi.fn((event, cb) => { if (event === 'end') cb(); }) });
+              getDevice.mockReturnValue({ shell: mockShell });
+
+              const navKeycodes = [
+                  'KEYCODE_DPAD_UP',
+                  'KEYCODE_DPAD_DOWN',
+                  'KEYCODE_DPAD_LEFT',
+                  'KEYCODE_DPAD_RIGHT'
+              ];
+
+              for (const keycode of navKeycodes) {
+                  const res = await request('POST', '/api/v1/remote/key', { keycode });
+                  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                      success: true
+                  }));
+              }
+          });
+
+          it('should accept volume keycodes', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const mockShell = vi.fn().mockResolvedValue({ on: vi.fn((event, cb) => { if (event === 'end') cb(); }) });
+              getDevice.mockReturnValue({ shell: mockShell });
+
+              const volumeKeycodes = [
+                  'KEYCODE_VOLUME_UP',
+                  'KEYCODE_VOLUME_DOWN',
+                  'KEYCODE_VOLUME_MUTE'
+              ];
+
+              for (const keycode of volumeKeycodes) {
+                  const res = await request('POST', '/api/v1/remote/key', { keycode });
+                  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                      success: true
+                  }));
+              }
+          });
+
+          it('should accept media keycodes', async () => {
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const mockShell = vi.fn().mockResolvedValue({ on: vi.fn((event, cb) => { if (event === 'end') cb(); }) });
+              getDevice.mockReturnValue({ shell: mockShell });
+
+              const mediaKeycodes = [
+                  'KEYCODE_MEDIA_PLAY_PAUSE',
+                  'KEYCODE_MEDIA_STOP'
+              ];
+
+              for (const keycode of mediaKeycodes) {
+                  const res = await request('POST', '/api/v1/remote/key', { keycode });
+                  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                      success: true
+                  }));
+              }
+          });
+      });
+  });
 });

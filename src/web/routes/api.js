@@ -235,6 +235,105 @@ export function registerApiRoutes(app) {
       }
   });
 
+  // --- Story 6.4: Remote Control Endpoint ---
+
+  /**
+   * Allowed keycodes for remote control
+   */
+  const ALLOWED_KEYCODES = [
+    // Navigation
+    'KEYCODE_DPAD_UP',
+    'KEYCODE_DPAD_DOWN',
+    'KEYCODE_DPAD_LEFT',
+    'KEYCODE_DPAD_RIGHT',
+    'KEYCODE_DPAD_CENTER',
+    // Control
+    'KEYCODE_BACK',
+    'KEYCODE_HOME',
+    'KEYCODE_ENTER',
+    // Volume
+    'KEYCODE_VOLUME_UP',
+    'KEYCODE_VOLUME_DOWN',
+    'KEYCODE_VOLUME_MUTE',
+    // Media
+    'KEYCODE_MEDIA_PLAY_PAUSE',
+    'KEYCODE_MEDIA_STOP'
+  ];
+
+  /**
+   * POST /api/v1/remote/key
+   * Send a key event to the connected device
+   */
+  app.post('/api/v1/remote/key', async (req, res) => {
+    const { keycode } = req.body;
+
+    // Validate request body has keycode
+    if (!keycode || typeof keycode !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'keycode field is required and must be a string',
+          details: { received: typeof keycode }
+        }
+      });
+    }
+
+    // Validate keycode is in allowed list
+    if (!ALLOWED_KEYCODES.includes(keycode)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_KEYCODE',
+          message: `Keycode '${keycode}' is not allowed`,
+          details: { allowedKeycodes: ALLOWED_KEYCODES }
+        }
+      });
+    }
+
+    // Check device connection
+    const device = getDevice();
+    if (!device) {
+      return res.status(503).json({
+        success: false,
+        error: {
+          code: 'DEVICE_DISCONNECTED',
+          message: 'No device connected',
+          details: { keycode }
+        }
+      });
+    }
+
+    try {
+      // Execute ADB shell command and wait for stream to complete
+      const stream = await device.shell(`input keyevent ${keycode}`);
+      
+      // Consume and wait for the stream to complete
+      await new Promise((resolve, reject) => {
+        stream.on('data', () => {}); // Consume data
+        stream.on('end', resolve);
+        stream.on('error', reject);
+      });
+
+      res.json({
+        success: true,
+        data: {
+          keycode,
+          sent: true
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'KEY_SEND_ERROR',
+          message: 'Failed to send key event',
+          details: { keycode, reason: error.message }
+        }
+      });
+    }
+  });
+
   /**
    * POST /api/v1/tasks/:name/run
    * Run a task immediately

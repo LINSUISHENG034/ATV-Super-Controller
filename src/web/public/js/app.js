@@ -14,6 +14,9 @@ function appData() {
     logs: [],
     toast: { visible: false, message: '' },
     ws: null,
+    volumeSlider: 50,
+    lastVolumeValue: 50,
+    volumeDebounceTimer: null,
 
     // Navigation Items
     navItems: [
@@ -263,6 +266,14 @@ function appData() {
     },
 
     /**
+     * Helper function to create a delay
+     * @param {number} ms - Milliseconds to delay
+     */
+    delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    },
+
+    /**
      * Toggle task enabled/disabled
      * @param {string} taskName - Name of the task to toggle
      * @param {boolean} enabled - New enabled state
@@ -341,6 +352,67 @@ function appData() {
         this.showToast('Network Error');
         this.addLog(`Network error running task ${taskName}`, 'ERROR');
       }
+    },
+
+    /**
+     * Send a key event to the device via remote control API
+     * @param {string} keycode - Android keycode to send
+     */
+    async sendKeyEvent(keycode) {
+      try {
+        const res = await fetch('/api/v1/remote/key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keycode })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast(`Sent: ${keycode.replace('KEYCODE_', '')}`);
+          this.addLog(`Key sent: ${keycode}`, 'DEBUG');
+        } else {
+          this.showToast(`Error: ${data.error.message}`);
+          this.addLog(`Key send failed: ${data.error.message}`, 'ERROR');
+        }
+      } catch (error) {
+        this.showToast('Network Error');
+        this.addLog(`Network error sending key ${keycode}`, 'ERROR');
+      }
+    },
+
+    /**
+     * Handle volume slider changes with debounce
+     * @param {Event} event - Input event from slider
+     */
+    handleVolumeChange(event) {
+      const newValue = parseInt(event.target.value, 10);
+      const diff = newValue - this.lastVolumeValue;
+
+      // Clear existing debounce timer
+      if (this.volumeDebounceTimer) {
+        clearTimeout(this.volumeDebounceTimer);
+      }
+
+      // Debounce volume changes (150ms)
+      this.volumeDebounceTimer = setTimeout(async () => {
+        if (diff > 0) {
+          // Volume increased - send volume up events with delay between each
+          const steps = Math.min(Math.ceil(diff / 10), 5);
+          for (let i = 0; i < steps; i++) {
+            await this.sendKeyEvent('KEYCODE_VOLUME_UP');
+            if (i < steps - 1) await this.delay(50);
+          }
+        } else if (diff < 0) {
+          // Volume decreased - send volume down events with delay between each
+          const steps = Math.min(Math.ceil(Math.abs(diff) / 10), 5);
+          for (let i = 0; i < steps; i++) {
+            await this.sendKeyEvent('KEYCODE_VOLUME_DOWN');
+            if (i < steps - 1) await this.delay(50);
+          }
+        }
+        this.lastVolumeValue = newValue;
+      }, 150);
     }
   }
 }
