@@ -25,6 +25,11 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
 
+    <!-- Prevent FOUC with x-cloak -->
+    <style>
+      [x-cloak] { display: none !important; }
+    </style>
+
     <script>
       tailwind.config = {
         darkMode: "class",
@@ -75,15 +80,16 @@
           <h1 class="text-xl font-bold tracking-tight">ATV Controller</h1>
         </div>
 
-        <nav class="flex-1 px-4 space-y-2">
+        <nav class="flex-1 px-4 space-y-2" role="navigation" aria-label="Main navigation">
           <template x-for="item in navItems">
             <a
               href="#"
               @click.prevent="activeTab = item.id"
-              :class="activeTab === item.id ? 'bg-primary-600/10 text-primary-400 border-primary-500' : 'text-gray-400 hover:bg-gray-800/70 hover:text-gray-100 border-transparent'"
-              class="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg border-l-4 transition-all duration-200 cursor-pointer focus-ring"
+              :class="activeTab === item.id ? 'bg-blue-600/20 text-blue-400 border-blue-500' : 'text-gray-400 hover:bg-gray-800/70 hover:text-gray-100 border-transparent'"
+              :aria-current="activeTab === item.id ? 'page' : false"
+              class="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg border-l-2 transition-all duration-200 cursor-pointer focus-ring focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              <i :class="item.icon" class="w-5 text-center"></i>
+              <i :class="item.icon" class="w-5 text-center" aria-hidden="true"></i>
               <span x-text="item.label"></span>
             </a>
           </template>
@@ -91,10 +97,18 @@
 
         <div class="p-4 border-t border-gray-800">
           <div class="flex items-center gap-3">
-            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span class="text-xs text-gray-400 font-mono"
-              >Core Service: Running</span
-            >
+            <div
+              :class="isConnected ? 'bg-green-500' : 'bg-red-500'"
+              class="w-2 h-2 rounded-full"
+            ></div>
+            <span
+              class="text-xs text-gray-400"
+              x-text="isConnected ? 'Device Connected' : 'Device Disconnected'"
+            ></span>
+          </div>
+          <div class="mt-2 text-xs text-gray-500 space-y-1">
+            <div x-text="'v' + serviceVersion"></div>
+            <div x-text="'Uptime: ' + formatUptime(serviceUptime)"></div>
           </div>
         </div>
       </aside>
@@ -145,6 +159,7 @@
           <div
             x-show="activeTab === 'dashboard'"
             x-transition.opacity.duration.300ms
+            x-cloak
             class="space-y-6"
           >
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -287,7 +302,8 @@
           <!-- Tasks Tab -->
           <div
             x-show="activeTab === 'tasks'"
-            x-transition.opacity
+            x-transition.opacity.duration.300ms
+            x-cloak
             class="space-y-4"
           >
             <!-- Empty State -->
@@ -405,7 +421,8 @@
           <!-- Remote Tab -->
           <div
             x-show="activeTab === 'remote'"
-            x-transition.opacity
+            x-transition.opacity.duration.300ms
+            x-cloak
             class="h-full flex flex-col lg:flex-row gap-6 py-4"
           >
             <!-- TV Preview (placeholder for future streaming) -->
@@ -435,34 +452,39 @@
                 <!-- Up Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_DPAD_UP')"
-                  class="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  aria-label="D-Pad Up"
+                  class="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
-                  <i class="fa-solid fa-chevron-up"></i>
+                  <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
                 </button>
                 <!-- Down Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_DPAD_DOWN')"
-                  class="absolute bottom-2 left-1/2 -translate-x-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  aria-label="D-Pad Down"
+                  class="absolute bottom-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
-                  <i class="fa-solid fa-chevron-down"></i>
+                  <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
                 </button>
                 <!-- Left Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_DPAD_LEFT')"
-                  class="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  aria-label="D-Pad Left"
+                  class="absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
-                  <i class="fa-solid fa-chevron-left"></i>
+                  <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
                 </button>
                 <!-- Right Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_DPAD_RIGHT')"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  aria-label="D-Pad Right"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
-                  <i class="fa-solid fa-chevron-right"></i>
+                  <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
                 </button>
                 <!-- OK Button (center) -->
                 <button
                   @click="sendKeyEvent('KEYCODE_DPAD_CENTER')"
+                  aria-label="OK / Select"
                   class="w-14 h-14 bg-gradient-to-b from-gray-600 to-gray-700 rounded-full flex items-center justify-center font-bold text-gray-200 text-sm border border-gray-500/30 shadow-[0_4px_12px_rgba(0,0,0,0.4)] hover:from-primary-500 hover:to-primary-600 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] active:scale-95 transition-all duration-200 cursor-pointer focus-ring"
                 >
                   OK
@@ -474,30 +496,33 @@
                 <!-- Back Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_BACK')"
+                  aria-label="Back"
                   class="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
                   <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
-                    <i class="fa-solid fa-arrow-left text-sm"></i>
+                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i>
                   </div>
                   <span class="text-[10px] font-medium">Back</span>
                 </button>
                 <!-- Home Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_HOME')"
+                  aria-label="Home"
                   class="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
                   <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
-                    <i class="fa-solid fa-house text-sm"></i>
+                    <i class="fa-solid fa-house text-sm" aria-hidden="true"></i>
                   </div>
                   <span class="text-[10px] font-medium">Home</span>
                 </button>
                 <!-- Volume Up Button -->
                 <button
                   @click="sendKeyEvent('KEYCODE_VOLUME_UP')"
+                  aria-label="Volume Up"
                   class="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
                   <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
-                    <i class="fa-solid fa-volume-high text-sm"></i>
+                    <i class="fa-solid fa-volume-high text-sm" aria-hidden="true"></i>
                   </div>
                   <span class="text-[10px] font-medium">Vol +</span>
                 </button>
@@ -524,7 +549,8 @@
           <!-- Logs Tab -->
           <div
             x-show="activeTab === 'logs'"
-            x-transition.opacity
+            x-transition.opacity.duration.300ms
+            x-cloak
             x-init="$watch('activeTab', val => { if (val === 'logs') loadLogs(); })"
             class="h-full flex flex-col"
           >
@@ -595,14 +621,18 @@
       <!-- Mobile Nav -->
       <nav
         class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-gray-900/95 backdrop-blur-md border-t border-gray-800 flex justify-around items-center z-50 pb-safe"
+        role="navigation"
+        aria-label="Mobile navigation"
       >
         <template x-for="item in navItems">
           <button
             @click="activeTab = item.id"
-            class="flex flex-col items-center justify-center w-full h-full space-y-1 transition-all duration-200 cursor-pointer focus-ring"
+            :aria-current="activeTab === item.id ? 'page' : false"
+            :aria-label="item.label"
+            class="flex flex-col items-center justify-center min-w-[44px] min-h-[44px] w-full h-full space-y-1 transition-all duration-200 cursor-pointer focus-ring focus-visible:ring-2 focus-visible:ring-blue-500"
             :class="activeTab === item.id ? 'text-primary-400' : 'text-gray-500 hover:text-gray-300'"
           >
-            <i :class="item.icon" class="text-lg"></i>
+            <i :class="item.icon" class="text-lg" aria-hidden="true"></i>
             <span class="text-[10px] font-medium" x-text="item.label"></span>
           </button>
         </template>

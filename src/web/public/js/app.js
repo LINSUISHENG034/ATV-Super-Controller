@@ -19,6 +19,8 @@ function appData() {
     volumeSlider: 50,
     lastVolumeValue: 50,
     volumeDebounceTimer: null,
+    serviceVersion: '0.0.0',
+    serviceUptime: 0,
 
     // Navigation Items
     navItems: [
@@ -55,6 +57,11 @@ function appData() {
           this.deviceIp = data.data.device.target || 'Disconnected';
           if (!this.isConnected && data.data.device.reconnecting) {
               this.deviceIp = 'Reconnecting...';
+          }
+          // Extract service info for sidebar
+          if (data.data.service) {
+            this.serviceVersion = data.data.service.version || '0.0.0';
+            this.serviceUptime = data.data.service.uptime || 0;
           }
         }
       } catch (error) {
@@ -377,6 +384,18 @@ function appData() {
      */
     delay(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
+    },
+
+    /**
+     * Format uptime seconds to human readable string
+     * @param {number} seconds - Uptime in seconds
+     * @returns {string} Formatted uptime string
+     */
+    formatUptime(seconds) {
+      if (seconds < 60) return `${seconds}s`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+      return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
     },
 
     /**
