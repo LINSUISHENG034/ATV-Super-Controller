@@ -22,7 +22,8 @@ vi.mock('../../../src/actions/index.js', () => ({
 vi.mock('../../../src/services/executor.js', () => ({
   executeAction: vi.fn(),
   executeTask: vi.fn(),
-  getActivityLog: vi.fn(() => [])
+  getActivityLog: vi.fn(() => []),
+  getActionContext: vi.fn(() => ({ youtube: { apiKey: 'test-key' } }))
 }));
 
 vi.mock('../../../src/utils/logger.js', () => ({
@@ -374,6 +375,28 @@ describe('API Routes', () => {
                       code: 'TASK_RUN_ERROR'
                   })
               }));
+          });
+
+          it('should pass action context to executeTask', async () => {
+              const executeTask = (await import('../../../src/services/executor.js')).executeTask;
+              const getActionContext = (await import('../../../src/services/executor.js')).getActionContext;
+              const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+              const getTaskDetails = (await import('../../../src/services/scheduler.js')).getTaskDetails;
+
+              // Setup mocks
+              getDevice.mockReturnValue({ shell: vi.fn() });
+              getTaskDetails.mockReturnValue({ name: 'test-task', schedule: '0 0 * * *', actions: [{ type: 'wake' }] });
+              executeTask.mockResolvedValue({ success: true, status: 'completed', duration: 100 });
+
+              const res = await request('POST', '/api/v1/tasks/:name/run', {}, { name: 'test-task' });
+              expect(res).not.toBeNull();
+
+              // Verify executeTask was called with context (not empty object)
+              expect(executeTask).toHaveBeenCalledWith(
+                  expect.objectContaining({ name: 'test-task' }),
+                  expect.anything(),
+                  expect.any(Object)
+              );
           });
       });
   });

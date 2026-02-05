@@ -4,7 +4,7 @@
  */
 import { getDeviceStatus, getDevice, connect, reconnect } from '../../services/adb-client.js';
 import { getSchedulerStatus, getJobs, setTaskEnabled, getTaskDetails } from '../../services/scheduler.js';
-import { executeAction, executeTask, getActivityLog } from '../../services/executor.js';
+import { executeAction, executeTask, getActivityLog, getActionContext } from '../../services/executor.js';
 import { getRecentLogs } from '../../utils/logger.js';
 import { createRequire } from 'module';
 
@@ -370,7 +370,7 @@ export function registerApiRoutes(app) {
           }
 
           // Execute the task
-          const result = await executeTask(task, device, {});
+          const result = await executeTask(task, device, getActionContext());
 
           if (result.success) {
               res.json({
