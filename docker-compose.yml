@@ -5,13 +5,18 @@ services:
     restart: unless-stopped
     command: ["start"]
 
+    ports:
+      - "3000:3000"
+
     environment:
       - ATV_DEVICE_IP=${ATV_DEVICE_IP}
       - ATV_DEVICE_PORT=${ATV_DEVICE_PORT:-5555}
       - ATV_LOG_LEVEL=${ATV_LOG_LEVEL:-info}
+      - ATV_WEB_ENABLED=true
+      - ATV_WEB_PORT=3000
 
     volumes:
-      - ./config:/app/config:ro
+      - ./config:/app/config
       # ADB keys for persistent device authentication
       # First connection requires manual approval on TV ("Always allow from this computer")
       - ./adb-keys:/home/atvuser/.android
