@@ -504,7 +504,8 @@ export function registerApiRoutes(app) {
             { name: 'package', type: 'string', required: true, label: 'Package Name' },
             { name: 'activity', type: 'string', required: false, label: 'Activity (optional)' }
           ]},
-          'shutdown': { type: 'shutdown', params: [] }
+          'shutdown': { type: 'shutdown', params: [] },
+          'prevent-adb-timeout': { type: 'prevent-adb-timeout', params: [] }
         };
         return schemas[type] || { type, params: [] };
       });
