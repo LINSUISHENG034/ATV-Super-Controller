@@ -585,6 +585,35 @@ function appData() {
     },
 
     /**
+     * Send a key event via WebSocket for low latency (fire-and-forget)
+     * Falls back to HTTP if WebSocket is not connected
+     * @param {string} keycode - Android keycode to send
+     * @param {Event} [event] - Optional click event for visual feedback
+     */
+    sendKeyEventWs(keycode, event) {
+      // Visual feedback on button press
+      if (event?.target) {
+        const btn = event.target.closest('.remote-btn');
+        if (btn) {
+          btn.classList.add('pressed');
+          setTimeout(() => btn.classList.remove('pressed'), 150);
+        }
+      }
+
+      // Try WebSocket first
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          type: 'remote:key',
+          keycode
+        }));
+        return;
+      }
+
+      // Fallback to HTTP
+      this.sendKeyEvent(keycode);
+    },
+
+    /**
      * Handle volume slider changes with debounce
      * @param {Event} event - Input event from slider
      */

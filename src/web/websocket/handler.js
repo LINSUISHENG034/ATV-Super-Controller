@@ -3,6 +3,7 @@
  * Handles incoming WebSocket messages and client state management
  */
 import { logger } from '../../utils/logger.js';
+import { getDevice } from '../../services/adb-client.js';
 
 // WebSocket ready state constants
 export const WS_READY_STATE = {
@@ -14,6 +15,23 @@ export const WS_READY_STATE = {
 
 // Supported channels
 const SUPPORTED_CHANNELS = ['status', 'tasks', 'logs'];
+
+// Allowed keycodes for remote control (security whitelist)
+const ALLOWED_KEYCODES = [
+  'KEYCODE_DPAD_UP',
+  'KEYCODE_DPAD_DOWN',
+  'KEYCODE_DPAD_LEFT',
+  'KEYCODE_DPAD_RIGHT',
+  'KEYCODE_DPAD_CENTER',
+  'KEYCODE_BACK',
+  'KEYCODE_HOME',
+  'KEYCODE_ENTER',
+  'KEYCODE_VOLUME_UP',
+  'KEYCODE_VOLUME_DOWN',
+  'KEYCODE_VOLUME_MUTE',
+  'KEYCODE_MEDIA_PLAY_PAUSE',
+  'KEYCODE_MEDIA_STOP'
+];
 
 /**
  * WebSocket Handler class - manages client connections and subscriptions
@@ -87,6 +105,8 @@ export class WebSocketHandler {
         return this._handleSubscribe(client, message.channel, clientId);
       case 'unsubscribe':
         return this._handleUnsubscribe(client, message.channel, clientId);
+      case 'remote:key':
+        return this._handleRemoteKey(message.keycode, clientId);
       default:
         logger.warn('Unknown WebSocket message type', { type: message.type });
         return { success: false, error: `Unknown message type: ${message.type}` };
@@ -131,6 +151,39 @@ export class WebSocketHandler {
 
     client.subscriptions.delete(channel);
     logger.debug('Client unsubscribed from channel', { clientId, channel });
+    return { success: true };
+  }
+
+  /**
+   * Handle remote key event (fire-and-forget for low latency)
+   * @param {string} keycode - Android keycode to send
+   * @param {string} clientId - Client ID for logging
+   * @returns {{ success: boolean, error?: string }}
+   * @private
+   */
+  _handleRemoteKey(keycode, clientId) {
+    if (!keycode || typeof keycode !== 'string') {
+      logger.warn('Remote key missing keycode', { clientId });
+      return { success: false, error: 'keycode is required' };
+    }
+
+    if (!ALLOWED_KEYCODES.includes(keycode)) {
+      logger.warn('Invalid keycode attempted', { clientId, keycode });
+      return { success: false, error: 'Invalid keycode' };
+    }
+
+    const device = getDevice();
+    if (!device) {
+      logger.warn('Remote key failed: device disconnected', { clientId, keycode });
+      return { success: false, error: 'Device disconnected' };
+    }
+
+    // Fire-and-forget: don't wait for completion
+    logger.debug('Executing remote key', { clientId, keycode });
+    device.shell(`input keyevent ${keycode}`).catch(err => {
+      logger.warn('Key event failed', { keycode, error: err.message });
+    });
+
     return { success: true };
   }
 

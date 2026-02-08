@@ -28,6 +28,12 @@
     <!-- Prevent FOUC with x-cloak -->
     <style>
       [x-cloak] { display: none !important; }
+
+      /* Remote button press feedback */
+      .remote-btn.pressed {
+        transform: scale(0.92);
+        filter: brightness(1.2);
+      }
     </style>
 
     <script>
@@ -549,44 +555,44 @@
             <div class="lg:w-72 flex flex-col items-center justify-center space-y-6 py-4 lg:py-0">
               <!-- D-Pad -->
               <div class="relative w-44 h-44 bg-gradient-to-b from-gray-800 to-gray-900 rounded-full border-4 border-gray-700/80 shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.05)] flex items-center justify-center">
-                <div class="absolute inset-2 rounded-full border border-gray-700/30"></div>
+                <div class="absolute inset-2 rounded-full border border-gray-700/30 pointer-events-none"></div>
                 <!-- Up Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_DPAD_UP')"
+                  @click="sendKeyEventWs('KEYCODE_DPAD_UP', $event)"
                   aria-label="D-Pad Up"
-                  class="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  class="remote-btn absolute top-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
                   <i class="fa-solid fa-chevron-up" aria-hidden="true"></i>
                 </button>
                 <!-- Down Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_DPAD_DOWN')"
+                  @click="sendKeyEventWs('KEYCODE_DPAD_DOWN', $event)"
                   aria-label="D-Pad Down"
-                  class="absolute bottom-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  class="remote-btn absolute bottom-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
                   <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
                 </button>
                 <!-- Left Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_DPAD_LEFT')"
+                  @click="sendKeyEventWs('KEYCODE_DPAD_LEFT', $event)"
                   aria-label="D-Pad Left"
-                  class="absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  class="remote-btn absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
                   <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
                 </button>
                 <!-- Right Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_DPAD_RIGHT')"
+                  @click="sendKeyEventWs('KEYCODE_DPAD_RIGHT', $event)"
                   aria-label="D-Pad Right"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
+                  class="remote-btn absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-full active:scale-90 transition-all duration-150 cursor-pointer focus-ring"
                 >
                   <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
                 </button>
                 <!-- OK Button (center) -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_DPAD_CENTER')"
+                  @click="sendKeyEventWs('KEYCODE_DPAD_CENTER', $event)"
                   aria-label="OK / Select"
-                  class="w-14 h-14 bg-gradient-to-b from-gray-600 to-gray-700 rounded-full flex items-center justify-center font-bold text-gray-200 text-sm border border-gray-500/30 shadow-[0_4px_12px_rgba(0,0,0,0.4)] hover:from-primary-500 hover:to-primary-600 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] active:scale-95 transition-all duration-200 cursor-pointer focus-ring"
+                  class="remote-btn w-14 h-14 bg-gradient-to-b from-gray-600 to-gray-700 rounded-full flex items-center justify-center font-bold text-gray-200 text-sm border border-gray-500/30 shadow-[0_4px_12px_rgba(0,0,0,0.4)] hover:from-primary-500 hover:to-primary-600 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] active:scale-95 transition-all duration-200 cursor-pointer focus-ring"
                 >
                   OK
                 </button>
@@ -596,9 +602,9 @@
               <div class="grid grid-cols-3 gap-4 w-full max-w-xs">
                 <!-- Back Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_BACK')"
+                  @click="sendKeyEventWs('KEYCODE_BACK', $event)"
                   aria-label="Back"
-                  class="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
+                  class="remote-btn flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
                   <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
                     <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i>
@@ -607,9 +613,9 @@
                 </button>
                 <!-- Home Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_HOME')"
+                  @click="sendKeyEventWs('KEYCODE_HOME', $event)"
                   aria-label="Home"
-                  class="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
+                  class="remote-btn flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
                   <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
                     <i class="fa-solid fa-house text-sm" aria-hidden="true"></i>
@@ -618,9 +624,9 @@
                 </button>
                 <!-- Volume Up Button -->
                 <button
-                  @click="sendKeyEvent('KEYCODE_VOLUME_UP')"
+                  @click="sendKeyEventWs('KEYCODE_VOLUME_UP', $event)"
                   aria-label="Volume Up"
-                  class="flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
+                  class="remote-btn flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
                   <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
                     <i class="fa-solid fa-volume-high text-sm" aria-hidden="true"></i>
