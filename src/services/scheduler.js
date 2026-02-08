@@ -355,6 +355,110 @@ function setTaskEnabled(taskName, enabled) {
   return { name: taskName, enabled };
 }
 
+/**
+ * Add a new task at runtime (for CRUD operations)
+ * @param {object} task - Task configuration
+ * @returns {object} Registration result
+ */
+function addTask(task) {
+  // Check if task already exists
+  if (registeredTasks.has(task.name)) {
+    return { success: false, error: `Task '${task.name}' already exists` };
+  }
+
+  // Register the task with the stored executor callback
+  const result = registerTask(task, executorCallback);
+
+  if (result.success) {
+    // Emit WebSocket event
+    import('../web/websocket/broadcaster.js')
+      .then(({ emitEvent }) => {
+        emitEvent('task:created', { task: task.name, schedule: task.schedule });
+      })
+      .catch((err) => {
+        logger.warn(`Failed to emit task:created event: ${err.message}`);
+      });
+  }
+
+  return result;
+}
+
+/**
+ * Update an existing task at runtime
+ * @param {string} taskName - Name of task to update
+ * @param {object} updatedTask - Updated task configuration
+ * @returns {object} Update result
+ */
+function updateTaskConfig(taskName, updatedTask) {
+  const existingTask = registeredTasks.get(taskName);
+
+  if (!existingTask) {
+    return { success: false, error: `Task '${taskName}' not found` };
+  }
+
+  // Cancel existing job
+  if (existingTask.job) {
+    existingTask.job.cancel();
+  }
+
+  // Remove old task entry
+  registeredTasks.delete(taskName);
+
+  // Register updated task
+  const result = registerTask(updatedTask, executorCallback);
+
+  if (result.success) {
+    // Emit WebSocket event
+    import('../web/websocket/broadcaster.js')
+      .then(({ emitEvent }) => {
+        emitEvent('task:updated', {
+          oldName: taskName,
+          task: updatedTask.name,
+          schedule: updatedTask.schedule
+        });
+      })
+      .catch((err) => {
+        logger.warn(`Failed to emit task:updated event: ${err.message}`);
+      });
+  }
+
+  return result;
+}
+
+/**
+ * Remove a task at runtime
+ * @param {string} taskName - Name of task to remove
+ * @returns {object} Removal result
+ */
+function removeTask(taskName) {
+  const task = registeredTasks.get(taskName);
+
+  if (!task) {
+    return { success: false, error: `Task '${taskName}' not found` };
+  }
+
+  // Cancel the job
+  if (task.job) {
+    task.job.cancel();
+  }
+
+  // Remove from registry
+  registeredTasks.delete(taskName);
+
+  logger.info(`Task removed: ${taskName}`);
+
+  // Emit WebSocket event
+  import('../web/websocket/broadcaster.js')
+    .then(({ emitEvent }) => {
+      emitEvent('task:deleted', { task: taskName });
+    })
+    .catch((err) => {
+      logger.warn(`Failed to emit task:deleted event: ${err.message}`);
+    });
+
+  return { success: true };
+}
+
 export {
   registerTask,
   getRegisteredTasks,
@@ -369,5 +473,8 @@ export {
   getTaskDetails,
   recordExecution,
   getJobs,
-  setTaskEnabled
+  setTaskEnabled,
+  addTask,
+  updateTaskConfig,
+  removeTask
 };

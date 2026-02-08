@@ -306,6 +306,18 @@
             x-cloak
             class="space-y-4"
           >
+            <!-- Header with Create Button -->
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Scheduled Tasks</h3>
+              <button
+                @click="openCreateModal()"
+                class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <i class="fa-solid fa-plus"></i>
+                Create Task
+              </button>
+            </div>
+
             <!-- Empty State -->
             <div
               x-show="!tasks || tasks.length === 0"
@@ -315,7 +327,13 @@
                 <i class="fa-solid fa-calendar-xmark text-gray-600 text-2xl"></i>
               </div>
               <h3 class="text-lg font-medium text-gray-400 mb-2">No scheduled tasks</h3>
-              <p class="text-sm text-gray-600">Tasks will appear here when configured</p>
+              <p class="text-sm text-gray-600 mb-4">Tasks will appear here when configured</p>
+              <button
+                @click="openCreateModal()"
+                class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
+              >
+                Create your first task
+              </button>
             </div>
 
             <!-- Task List -->
@@ -391,6 +409,24 @@
                         :class="task.running ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-play'"
                         class="text-xs"
                       ></i>
+                    </button>
+
+                    <!-- Edit Button -->
+                    <button
+                      @click="openEditModal(task)"
+                      class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-700 text-gray-400 hover:text-white transition-all duration-200 focus-ring border border-gray-600"
+                      title="Edit task"
+                    >
+                      <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+
+                    <!-- Delete Button -->
+                    <button
+                      @click="confirmDeleteTask(task.name)"
+                      class="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 focus-ring border border-red-500/30"
+                      title="Delete task"
+                    >
+                      <i class="fa-solid fa-trash text-xs"></i>
                     </button>
                   </div>
                 </div>
@@ -686,6 +722,236 @@
                 Play
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task Modal -->
+      <div
+        x-show="taskModal.isOpen"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        @click.self="closeTaskModal()"
+        @keydown.escape.window="closeTaskModal()"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-modal-title"
+      >
+        <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+          <!-- Modal Header -->
+          <div class="p-6 border-b border-gray-700 flex items-center justify-between shrink-0">
+            <h3 id="task-modal-title" class="text-lg font-semibold flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-primary-500"></i>
+              <span x-text="taskModal.mode === 'create' ? 'Create New Task' : 'Edit Task'"></span>
+            </h3>
+            <button @click="closeTaskModal()" class="text-gray-400 hover:text-white transition-colors">
+              <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+          </div>
+
+          <!-- Modal Body (scrollable) -->
+          <div class="p-6 space-y-6 overflow-y-auto flex-1">
+            <!-- Task Name -->
+            <div>
+              <label class="block text-sm font-medium text-gray-400 mb-2">Task Name</label>
+              <input
+                type="text"
+                x-model="taskModal.task.name"
+                placeholder="e.g., Morning Wake Up"
+                class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+                :class="taskModal.errors.name && 'border-red-500'"
+              />
+              <p x-show="taskModal.errors.name" class="text-red-400 text-xs mt-1" x-text="taskModal.errors.name"></p>
+            </div>
+
+            <!-- Cron Schedule -->
+            <div>
+              <label class="block text-sm font-medium text-gray-400 mb-2">Schedule (Cron Expression)</label>
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  x-model="taskModal.task.schedule"
+                  placeholder="0 0 7 * * *"
+                  class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white font-mono placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+                  :class="taskModal.errors.schedule && 'border-red-500'"
+                />
+                <select
+                  @change="applyCronPreset($event.target.value)"
+                  class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-300 focus:border-primary-500 outline-none cursor-pointer"
+                >
+                  <option value="">Presets...</option>
+                  <option value="0 0 * * * *">Every hour</option>
+                  <option value="0 0 7 * * *">Daily at 7 AM</option>
+                  <option value="0 0 23 * * *">Daily at 11 PM</option>
+                  <option value="0 30 7 * * 1-5">Weekdays 7:30 AM</option>
+                  <option value="0 0 9 * * 0,6">Weekends 9 AM</option>
+                </select>
+              </div>
+              <p x-show="taskModal.errors.schedule" class="text-red-400 text-xs mt-1" x-text="taskModal.errors.schedule"></p>
+              <p x-show="taskModal.task.schedule && !taskModal.errors.schedule" class="text-gray-500 text-xs mt-1" x-text="describeCron(taskModal.task.schedule)"></p>
+            </div>
+
+            <!-- Actions Builder -->
+            <div>
+              <label class="block text-sm font-medium text-gray-400 mb-2">Actions</label>
+              <div class="space-y-2" x-show="taskModal.task.actions.length > 0">
+                <template x-for="(action, index) in taskModal.task.actions" :key="index">
+                  <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center gap-3">
+                    <span class="text-gray-500 text-sm w-6" x-text="(index + 1) + '.'"></span>
+                    <select
+                      x-model="action.type"
+                      @change="resetActionParams(index)"
+                      class="bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-primary-500 outline-none cursor-pointer"
+                    >
+                      <option value="wake">Wake</option>
+                      <option value="wait">Wait</option>
+                      <option value="play-video">Play Video</option>
+                      <option value="launch-app">Launch App</option>
+                      <option value="shutdown">Shutdown</option>
+                    </select>
+
+                    <!-- Wait duration input -->
+                    <template x-if="action.type === 'wait'">
+                      <input
+                        type="number"
+                        x-model.number="action.duration"
+                        placeholder="Duration (ms)"
+                        class="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-primary-500 outline-none"
+                      />
+                    </template>
+
+                    <!-- Play video URL input -->
+                    <template x-if="action.type === 'play-video'">
+                      <input
+                        type="text"
+                        x-model="action.url"
+                        placeholder="YouTube URL"
+                        class="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-primary-500 outline-none"
+                      />
+                    </template>
+
+                    <!-- Launch app package input -->
+                    <template x-if="action.type === 'launch-app'">
+                      <input
+                        type="text"
+                        x-model="action.package"
+                        placeholder="Package name"
+                        class="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-primary-500 outline-none"
+                      />
+                    </template>
+
+                    <!-- Spacer for actions without params -->
+                    <template x-if="action.type === 'wake' || action.type === 'shutdown'">
+                      <span class="flex-1 text-gray-500 text-sm italic">No parameters</span>
+                    </template>
+
+                    <!-- Reorder buttons -->
+                    <div class="flex gap-1">
+                      <button
+                        @click="moveAction(index, -1)"
+                        :disabled="index === 0"
+                        class="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <i class="fa-solid fa-chevron-up text-xs"></i>
+                      </button>
+                      <button
+                        @click="moveAction(index, 1)"
+                        :disabled="index === taskModal.task.actions.length - 1"
+                        class="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                      </button>
+                    </div>
+
+                    <!-- Remove button -->
+                    <button
+                      @click="removeAction(index)"
+                      class="w-7 h-7 rounded bg-red-500/20 hover:bg-red-500/40 text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <p x-show="taskModal.errors.actions" class="text-red-400 text-xs mt-1" x-text="taskModal.errors.actions"></p>
+
+              <!-- Add Action Button -->
+              <button
+                @click="addAction()"
+                class="mt-3 w-full py-2 border-2 border-dashed border-gray-700 rounded-lg text-gray-400 hover:border-primary-500 hover:text-primary-400 transition-colors flex items-center justify-center gap-2"
+              >
+                <i class="fa-solid fa-plus"></i>
+                Add Action
+              </button>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="p-6 border-t border-gray-700 flex justify-end gap-3 shrink-0">
+            <button
+              @click="closeTaskModal()"
+              class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              @click="saveTask()"
+              :disabled="taskModal.saving"
+              class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
+              <i :class="taskModal.saving ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-check'"></i>
+              <span x-text="taskModal.saving ? 'Saving...' : 'Save Task'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div
+        x-show="deleteConfirm.isOpen"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        @click.self="deleteConfirm.isOpen = false"
+        @keydown.escape.window="deleteConfirm.isOpen = false"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md shadow-2xl">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+              <i class="fa-solid fa-trash text-red-400"></i>
+            </div>
+            <h3 class="text-lg font-semibold">Delete Task</h3>
+          </div>
+          <p class="text-gray-400 mb-6">
+            Are you sure you want to delete "<span class="text-white font-medium" x-text="deleteConfirm.taskName"></span>"? This action cannot be undone.
+          </p>
+          <div class="flex gap-3 justify-end">
+            <button
+              @click="deleteConfirm.isOpen = false"
+              class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              @click="deleteTask()"
+              :disabled="deleteConfirm.deleting"
+              class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors flex items-center gap-2"
+            >
+              <i :class="deleteConfirm.deleting ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-trash'"></i>
+              <span x-text="deleteConfirm.deleting ? 'Deleting...' : 'Delete'"></span>
+            </button>
           </div>
         </div>
       </div>

@@ -3,9 +3,12 @@
  * Defines all API endpoints for the Web UI
  */
 import { getDeviceStatus, getDevice, connect, reconnect } from '../../services/adb-client.js';
-import { getSchedulerStatus, getJobs, setTaskEnabled, getTaskDetails } from '../../services/scheduler.js';
+import { getSchedulerStatus, getJobs, setTaskEnabled, getTaskDetails, addTask, updateTaskConfig, removeTask } from '../../services/scheduler.js';
 import { executeAction, executeTask, getActivityLog, getActionContext } from '../../services/executor.js';
 import { getRecentLogs } from '../../utils/logger.js';
+import { addTask as addTaskToConfig, updateTask as updateTaskInConfig, deleteTask as deleteTaskFromConfig } from '../../services/config-persistence.js';
+import { validateCronExpression } from '../../utils/cron-validator.js';
+import { listActions, getAction } from '../../actions/index.js';
 import { createRequire } from 'module';
 
 // Use createRequire to import package.json (synchronous but at module load time)
@@ -444,6 +447,238 @@ export function registerApiRoutes(app) {
           message: 'Failed to retrieve logs',
           details: { reason: error.message }
         }
+      });
+    }
+  });
+
+  // --- Task CRUD Endpoints ---
+
+  /**
+   * GET /api/v1/actions
+   * List available action types with their schemas
+   */
+  app.get('/api/v1/actions', (req, res) => {
+    try {
+      const actionTypes = listActions();
+      const actions = actionTypes.map(type => {
+        const schemas = {
+          'wake': { type: 'wake', params: [] },
+          'wait': { type: 'wait', params: [{ name: 'duration', type: 'number', required: true, label: 'Duration (ms)' }] },
+          'play-video': { type: 'play-video', params: [{ name: 'url', type: 'string', required: true, label: 'Video URL' }] },
+          'launch-app': { type: 'launch-app', params: [
+            { name: 'package', type: 'string', required: true, label: 'Package Name' },
+            { name: 'activity', type: 'string', required: false, label: 'Activity (optional)' }
+          ]},
+          'shutdown': { type: 'shutdown', params: [] }
+        };
+        return schemas[type] || { type, params: [] };
+      });
+
+      res.json({ success: true, data: { actions } });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'ACTIONS_ERROR', message: error.message }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/tasks
+   * Create a new task
+   */
+  app.post('/api/v1/tasks', async (req, res) => {
+    try {
+      const { name, schedule, actions } = req.body;
+
+      // Validate required fields
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Task name is required' }
+        });
+      }
+
+      if (!schedule || typeof schedule !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Schedule is required' }
+        });
+      }
+
+      // Validate cron expression
+      const cronResult = validateCronExpression(schedule);
+      if (!cronResult.valid) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_CRON', message: cronResult.error }
+        });
+      }
+
+      if (!actions || !Array.isArray(actions) || actions.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'At least one action is required' }
+        });
+      }
+
+      // Validate action types
+      for (const action of actions) {
+        if (!getAction(action.type)) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_ACTION', message: `Unknown action type: ${action.type}` }
+          });
+        }
+      }
+
+      const task = { name: name.trim(), schedule, actions };
+
+      // Save to config file
+      await addTaskToConfig(task);
+
+      // Register with scheduler
+      const result = addTask(task);
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          error: { code: 'SCHEDULER_ERROR', message: result.error }
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        data: { task: name, nextRun: result.nextRun }
+      });
+    } catch (error) {
+      if (error.code === 'TASK_EXISTS') {
+        return res.status(409).json({
+          success: false,
+          error: { code: 'TASK_EXISTS', message: error.message }
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: { code: 'CREATE_ERROR', message: error.message }
+      });
+    }
+  });
+
+  /**
+   * PUT /api/v1/tasks/:name
+   * Update an existing task
+   */
+  app.put('/api/v1/tasks/:name', async (req, res) => {
+    try {
+      const { name: taskName } = req.params;
+      const { name, schedule, actions } = req.body;
+
+      // Check if task exists
+      const existingTask = getTaskDetails(taskName);
+      if (!existingTask) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'TASK_NOT_FOUND', message: `Task '${taskName}' not found` }
+        });
+      }
+
+      // Validate required fields
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Task name is required' }
+        });
+      }
+
+      // Validate cron expression
+      const cronResult = validateCronExpression(schedule);
+      if (!cronResult.valid) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_CRON', message: cronResult.error }
+        });
+      }
+
+      // Validate actions
+      if (!actions || !Array.isArray(actions) || actions.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'At least one action is required' }
+        });
+      }
+
+      for (const action of actions) {
+        if (!getAction(action.type)) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_ACTION', message: `Unknown action type: ${action.type}` }
+          });
+        }
+      }
+
+      const updatedTask = { name: name.trim(), schedule, actions };
+
+      // Update in config file
+      await updateTaskInConfig(taskName, updatedTask);
+
+      // Update in scheduler
+      const result = updateTaskConfig(taskName, updatedTask);
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          error: { code: 'SCHEDULER_ERROR', message: result.error }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: { task: name, nextRun: result.nextRun }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_ERROR', message: error.message }
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/v1/tasks/:name
+   * Delete a task
+   */
+  app.delete('/api/v1/tasks/:name', async (req, res) => {
+    try {
+      const { name } = req.params;
+
+      // Check if task exists
+      const existingTask = getTaskDetails(name);
+      if (!existingTask) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'TASK_NOT_FOUND', message: `Task '${name}' not found` }
+        });
+      }
+
+      // Remove from config file
+      await deleteTaskFromConfig(name);
+
+      // Remove from scheduler
+      const result = removeTask(name);
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          error: { code: 'SCHEDULER_ERROR', message: result.error }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: { task: name, deleted: true }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'DELETE_ERROR', message: error.message }
       });
     }
   });

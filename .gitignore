@@ -15,6 +15,7 @@ spike/node_modules/
 *.log
 logs/
 output.md
+test-output.txt
 
 # Environment
 .env
@@ -24,6 +25,8 @@ adb-keys/
 
 # Config (user-specific)
 config.json
+config.json.backup
+
 
 # IDE
 .idea/

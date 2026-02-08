@@ -24,6 +24,22 @@ function appData() {
     showYoutubeModal: false,
     youtubeUrl: '',
 
+    // Task Modal State
+    taskModal: {
+      isOpen: false,
+      mode: 'create',
+      task: { name: '', schedule: '', actions: [] },
+      errors: {},
+      saving: false
+    },
+
+    // Delete Confirmation State
+    deleteConfirm: {
+      isOpen: false,
+      taskName: '',
+      deleting: false
+    },
+
     // Navigation Items
     navItems: [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-gauge-high' },
@@ -195,6 +211,18 @@ function appData() {
       else if (message.type === 'task:enabled' || message.type === 'task:disabled') {
         // Refresh task list when task is enabled/disabled
         this.fetchTasks();
+      }
+      else if (message.type === 'task:created') {
+        this.fetchTasks();
+        this.showToast(`Task created: ${message.data.task}`);
+      }
+      else if (message.type === 'task:updated') {
+        this.fetchTasks();
+        this.showToast(`Task updated: ${message.data.task}`);
+      }
+      else if (message.type === 'task:deleted') {
+        this.fetchTasks();
+        this.showToast(`Task deleted: ${message.data.task}`);
       }
       else if (message.type === 'log:entry') {
         // Handle real-time log streaming
@@ -576,6 +604,231 @@ function appData() {
         }
         this.lastVolumeValue = newValue;
       }, 150);
-    }
+    },
+
+    // --- Task Modal Methods ---
+
+    /**
+     * Open modal for creating a new task
+     */
+    openCreateModal() {
+      this.taskModal = {
+        isOpen: true,
+        mode: 'create',
+        task: { name: '', schedule: '', actions: [{ type: 'wake' }] },
+        errors: {},
+        saving: false
+      };
+    },
+
+    /**
+     * Open modal for editing an existing task
+     * @param {object} task - Task to edit
+     */
+    openEditModal(task) {
+      this.taskModal = {
+        isOpen: true,
+        mode: 'edit',
+        task: {
+          name: task.name,
+          schedule: task.cron,
+          actions: JSON.parse(JSON.stringify(task.actions || []))
+        },
+        originalName: task.name,
+        errors: {},
+        saving: false
+      };
+    },
+
+    /**
+     * Close the task modal
+     */
+    closeTaskModal() {
+      this.taskModal.isOpen = false;
+    },
+
+    /**
+     * Validate task form
+     * @returns {boolean} True if valid
+     */
+    validateTaskForm() {
+      this.taskModal.errors = {};
+
+      if (!this.taskModal.task.name.trim()) {
+        this.taskModal.errors.name = 'Task name is required';
+      }
+
+      if (!this.taskModal.task.schedule.trim()) {
+        this.taskModal.errors.schedule = 'Schedule is required';
+      }
+
+      if (!this.taskModal.task.actions || this.taskModal.task.actions.length === 0) {
+        this.taskModal.errors.actions = 'At least one action is required';
+      }
+
+      return Object.keys(this.taskModal.errors).length === 0;
+    },
+
+    /**
+     * Save task (create or update)
+     */
+    async saveTask() {
+      if (!this.validateTaskForm()) return;
+
+      this.taskModal.saving = true;
+
+      try {
+        const isEdit = this.taskModal.mode === 'edit';
+        const url = isEdit
+          ? `/api/v1/tasks/${encodeURIComponent(this.taskModal.originalName)}`
+          : '/api/v1/tasks';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.taskModal.task)
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast(`Task ${isEdit ? 'updated' : 'created'} successfully`);
+          this.closeTaskModal();
+          this.fetchTasks();
+        } else {
+          this.taskModal.errors.name = data.error.message;
+        }
+      } catch (error) {
+        this.showToast('Network error');
+      } finally {
+        this.taskModal.saving = false;
+      }
+    },
+
+    /**
+     * Open delete confirmation dialog
+     * @param {string} taskName - Name of task to delete
+     */
+    confirmDeleteTask(taskName) {
+      this.deleteConfirm = {
+        isOpen: true,
+        taskName,
+        deleting: false
+      };
+    },
+
+    /**
+     * Delete task after confirmation
+     */
+    async deleteTask() {
+      this.deleteConfirm.deleting = true;
+
+      try {
+        const res = await fetch(`/api/v1/tasks/${encodeURIComponent(this.deleteConfirm.taskName)}`, {
+          method: 'DELETE'
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast('Task deleted');
+          this.deleteConfirm.isOpen = false;
+          this.fetchTasks();
+        } else {
+          this.showToast(`Error: ${data.error.message}`);
+        }
+      } catch (error) {
+        this.showToast('Network error');
+      } finally {
+        this.deleteConfirm.deleting = false;
+      }
+    },
+
+    /**
+     * Add a new action to the task
+     */
+    addAction() {
+      this.taskModal.task.actions.push({ type: 'wake' });
+    },
+
+    /**
+     * Remove an action from the task
+     * @param {number} index - Index of action to remove
+     */
+    removeAction(index) {
+      this.taskModal.task.actions.splice(index, 1);
+    },
+
+    /**
+     * Move an action up or down
+     * @param {number} index - Current index
+     * @param {number} direction - -1 for up, 1 for down
+     */
+    moveAction(index, direction) {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= this.taskModal.task.actions.length) return;
+
+      const actions = this.taskModal.task.actions;
+      [actions[index], actions[newIndex]] = [actions[newIndex], actions[index]];
+    },
+
+    /**
+     * Reset action params when type changes
+     * @param {number} index - Action index
+     */
+    resetActionParams(index) {
+      const action = this.taskModal.task.actions[index];
+      const type = action.type;
+
+      // Clear all params except type
+      Object.keys(action).forEach(key => {
+        if (key !== 'type') delete action[key];
+      });
+
+      // Set defaults for new type
+      if (type === 'wait') action.duration = 5000;
+      if (type === 'play-video') action.url = '';
+      if (type === 'launch-app') action.package = '';
+    },
+
+    /**
+     * Apply a cron preset to the schedule field
+     * @param {string} preset - Cron expression preset
+     */
+    applyCronPreset(preset) {
+      if (preset) {
+        this.taskModal.task.schedule = preset;
+      }
+    },
+
+    /**
+     * Describe a cron expression in human-readable format
+     * @param {string} cron - 6-field cron expression
+     * @returns {string} Human-readable description
+     */
+    describeCron(cron) {
+      if (!cron) return '';
+
+      const parts = cron.trim().split(/\s+/);
+      if (parts.length !== 6) return 'Invalid cron format (need 6 fields)';
+
+      const [sec, min, hour, dom, mon, dow] = parts;
+
+      // Simple descriptions for common patterns
+      if (sec === '0' && min === '0' && hour === '*') {
+        return 'Runs every hour at :00';
+      }
+      if (sec === '0' && min === '0' && dom === '*' && mon === '*') {
+        if (dow === '*') return `Runs daily at ${hour}:00`;
+        if (dow === '1-5') return `Runs weekdays at ${hour}:00`;
+        if (dow === '0,6') return `Runs weekends at ${hour}:00`;
+      }
+      if (sec === '0' && dom === '*' && mon === '*' && dow === '*') {
+        return `Runs daily at ${hour}:${min.padStart(2, '0')}`;
+      }
+
+      return `Runs at second ${sec}, minute ${min}, hour ${hour}`;
+    },
   }
 }
