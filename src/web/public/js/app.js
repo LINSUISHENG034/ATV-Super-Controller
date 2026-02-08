@@ -49,6 +49,9 @@ function appData() {
     previewPaused: false,
     previewTimer: null,
 
+    // Device Settings State
+    preventingTimeout: false,
+
     // Navigation Items
     navItems: [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-gauge-high' },
@@ -613,6 +616,43 @@ function appData() {
         }
         this.lastVolumeValue = newValue;
       }, 150);
+    },
+
+    /**
+     * Prevent ADB timeout by setting adb_allowed_connection_time to 0
+     */
+    async preventAdbTimeout() {
+      if (this.preventingTimeout) return;
+
+      this.preventingTimeout = true;
+
+      try {
+        const res = await fetch('/api/v1/actions/prevent-adb-timeout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          const status = data.data?.status || 'success';
+          if (status === 'already_disabled') {
+            this.showToast('ADB timeout already disabled');
+          } else {
+            this.showToast('ADB timeout disabled successfully');
+          }
+          this.addLog('ADB timeout prevention applied', 'INFO');
+        } else {
+          this.showToast(`Error: ${data.error.message}`);
+          this.addLog(`ADB timeout prevention failed: ${data.error.message}`, 'ERROR');
+        }
+      } catch (error) {
+        this.showToast('Network Error');
+        this.addLog('Network error preventing ADB timeout', 'ERROR');
+      } finally {
+        this.preventingTimeout = false;
+      }
     },
 
     // --- Preview Methods ---
