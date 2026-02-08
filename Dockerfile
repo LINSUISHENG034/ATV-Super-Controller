@@ -41,7 +41,7 @@ COPY --chown=atvuser:atvuser package.json package-lock.json ./
 # Copy application source code
 COPY --chown=atvuser:atvuser src/ ./src/
 COPY --chown=atvuser:atvuser schemas/ ./schemas/
-COPY --chown=atvuser:atvuser config.example.json ./
+COPY --chown=atvuser:atvuser config/config.example.json ./config/
 
 # Create directory for runtime config (will be mounted as volume)
 RUN mkdir -p /app/config && \

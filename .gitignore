@@ -31,8 +31,8 @@ test-output.txt
 adb-keys/
 
 # Config (user-specific)
-config.json
-config.json.backup
+config/config.json
+config/config.json.backup
 
 # IDE
 .idea/

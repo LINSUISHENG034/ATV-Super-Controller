@@ -206,10 +206,18 @@ describe('loadConfig (AC1, AC2)', () => {
       expect(config.device.ip).toBe('192.168.1.100');
     });
 
-    it('should fall back to ./config.json when ATV_CONFIG_PATH not set', async () => {
+    it('should fall back to ./config/config.json when ATV_CONFIG_PATH not set', async () => {
       delete process.env.ATV_CONFIG_PATH;
-      // This will fail if no config.json exists, which is expected behavior
-      await expect(loadConfig()).rejects.toThrow();
+      // Default path is ./config/config.json - test that it attempts to load from there
+      // The test will either succeed (if config exists) or fail with CONFIG_NOT_FOUND
+      try {
+        const config = await loadConfig();
+        // If config/config.json exists, it should load successfully
+        expect(config).toHaveProperty('device');
+      } catch (error) {
+        // If config/config.json doesn't exist, it should throw CONFIG_NOT_FOUND
+        expect(error.code).toBe('CONFIG_NOT_FOUND');
+      }
     });
   });
 

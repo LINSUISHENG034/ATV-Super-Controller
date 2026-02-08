@@ -7,7 +7,7 @@ import { existsSync } from 'fs';
 import { logger } from '../utils/logger.js';
 
 // Default config path
-const DEFAULT_CONFIG_PATH = process.env.ATV_CONFIG_PATH || './config.json';
+const DEFAULT_CONFIG_PATH = process.env.ATV_CONFIG_PATH || './config/config.json';
 
 /**
  * Load current configuration from file

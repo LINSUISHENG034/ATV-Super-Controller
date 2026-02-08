@@ -125,7 +125,7 @@ function validateTasks(config) {
  * @returns {object} Loaded and merged configuration object
  */
 async function loadConfig(filePath) {
-  const configPath = filePath || process.env.ATV_CONFIG_PATH || './config.json';
+  const configPath = filePath || process.env.ATV_CONFIG_PATH || './config/config.json';
   logger.debug(`Loading configuration from ${configPath}`);
 
   const config = await loadConfigFile(configPath);

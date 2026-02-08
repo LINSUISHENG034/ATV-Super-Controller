@@ -34,8 +34,9 @@ cd ATV-Super-Controller
 npm install
 
 # Configure your device
-cp config.example.json config.json
-# Edit config.json with your TV's IP address
+mkdir -p config
+cp config/config.example.json config/config.json
+# Edit config/config.json with your TV's IP address
 
 # Start the service
 npm start
@@ -45,7 +46,8 @@ npm start
 
 ```bash
 # Copy and configure
-cp config.example.json config.json
+mkdir -p config
+cp config/config.example.json config/config.json
 
 # Build the image
 docker build -t atv-super-controller:latest .
@@ -65,7 +67,7 @@ Access the web dashboard at `http://localhost:3000` after starting the service.
 
 ## ⚙️ Configuration
 
-Create `config.json` from the example:
+Create `config/config.json` from the example:
 
 ```json
 {
