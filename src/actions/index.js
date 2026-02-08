@@ -8,6 +8,7 @@ import { playVideoAction } from './play-video.js';
 import { shutdownAction } from './shutdown.js';
 import { wakeUpAction } from './wake-up.js';
 import { waitAction } from './wait.js';
+import { preventAdbTimeoutAction } from './prevent-adb-timeout.js';
 
 const actionRegistry = new Map();
 
@@ -46,5 +47,6 @@ registerAction(launchAppAction);
 registerAction(playVideoAction);
 registerAction(shutdownAction);
 registerAction(waitAction);
+registerAction(preventAdbTimeoutAction);
 
 export { registerAction, getAction, listActions };
