@@ -218,4 +218,55 @@ function getDeviceStatus() {
   return getConnectionStatus();
 }
 
-export { connect, disconnect, getConnectionStatus, getDeviceStatus, getDeviceInfo, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect };
+/**
+ * Capture screen from the connected device
+ * @returns {Promise<{success: boolean, image?: string, error?: object}>}
+ */
+async function captureScreen() {
+  if (!connected || !currentDevice) {
+    return {
+      success: false,
+      error: {
+        code: 'DEVICE_NOT_CONNECTED',
+        message: 'No device connected for screen capture'
+      }
+    };
+  }
+
+  try {
+    logAdbCommand('screencap', currentTarget);
+    const stream = await currentDevice.screencap();
+
+    // Collect stream data into buffer
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    // Convert to base64 data URL
+    const base64 = buffer.toString('base64');
+    const dataUrl = `data:image/png;base64,${base64}`;
+
+    logger.debug('Screen capture completed', { size: buffer.length });
+
+    return {
+      success: true,
+      image: dataUrl,
+      timestamp: new Date().toISOString(),
+      size: buffer.length
+    };
+  } catch (error) {
+    logger.error('Screen capture failed', { reason: error.message });
+    return {
+      success: false,
+      error: {
+        code: 'SCREENCAP_FAILED',
+        message: 'Failed to capture screen',
+        details: { reason: error.message }
+      }
+    };
+  }
+}
+
+export { connect, disconnect, getConnectionStatus, getDeviceStatus, getDeviceInfo, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect, captureScreen };

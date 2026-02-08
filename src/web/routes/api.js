@@ -2,7 +2,7 @@
  * REST API Routes
  * Defines all API endpoints for the Web UI
  */
-import { getDeviceStatus, getDevice, connect, reconnect } from '../../services/adb-client.js';
+import { getDeviceStatus, getDevice, connect, reconnect, captureScreen } from '../../services/adb-client.js';
 import { getSchedulerStatus, getJobs, setTaskEnabled, getTaskDetails, addTask, updateTaskConfig, removeTask } from '../../services/scheduler.js';
 import { executeAction, executeTask, getActivityLog, getActionContext } from '../../services/executor.js';
 import { getRecentLogs } from '../../utils/logger.js';
@@ -333,6 +333,41 @@ export function registerApiRoutes(app) {
           code: 'KEY_SEND_ERROR',
           message: 'Failed to send key event',
           details: { keycode, reason: error.message }
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/remote/screenshot
+   * Capture and return a screenshot from the connected device
+   */
+  app.get('/api/v1/remote/screenshot', async (req, res) => {
+    try {
+      const result = await captureScreen();
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: {
+            image: result.image,
+            timestamp: result.timestamp,
+            size: result.size
+          }
+        });
+      } else {
+        res.status(503).json({
+          success: false,
+          error: result.error
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'SCREENSHOT_ERROR',
+          message: 'Failed to capture screenshot',
+          details: { reason: error.message }
         }
       });
     }

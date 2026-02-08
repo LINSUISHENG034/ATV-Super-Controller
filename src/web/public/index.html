@@ -459,24 +459,89 @@
             x-show="activeTab === 'remote'"
             x-transition.opacity.duration.300ms
             x-cloak
+            x-init="$watch('activeTab', val => { if (val === 'remote') startPreviewRefresh(); else stopPreviewRefresh(); })"
             class="h-full flex flex-col lg:flex-row gap-6 py-4"
           >
-            <!-- TV Preview (placeholder for future streaming) -->
+            <!-- TV Preview -->
             <div class="flex-1 flex flex-col min-h-0">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Live Preview</h3>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
+                  <!-- Refresh interval selector -->
+                  <select
+                    x-model="previewInterval"
+                    @change="restartPreviewRefresh()"
+                    class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 focus:border-primary-500 outline-none cursor-pointer"
+                  >
+                    <option value="1000">1s</option>
+                    <option value="2000">2s</option>
+                    <option value="5000">5s</option>
+                    <option value="0">Manual</option>
+                  </select>
+                  <!-- Pause/Resume button -->
+                  <button
+                    @click="togglePreviewPause()"
+                    class="px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 transition-colors text-xs"
+                    :title="previewPaused ? 'Resume' : 'Pause'"
+                  >
+                    <i :class="previewPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause'"></i>
+                  </button>
+                  <!-- Manual refresh button -->
+                  <button
+                    @click="fetchScreenshot()"
+                    :disabled="previewLoading"
+                    class="px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 transition-colors text-xs disabled:opacity-50"
+                    title="Refresh now"
+                  >
+                    <i :class="previewLoading ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-rotate'"></i>
+                  </button>
                   <span class="text-xs text-gray-500 font-mono" x-text="deviceIp + ':5555'"></span>
                 </div>
               </div>
               <div class="relative flex-1 bg-gray-950 rounded-xl border border-gray-700 overflow-hidden min-h-[200px]">
-                <div class="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
-                  <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-                    <i class="fa-solid fa-tv text-2xl text-gray-600"></i>
-                  </div>
-                  <p class="text-sm font-medium">Waiting for stream...</p>
-                  <p class="text-xs text-gray-600 mt-1">scrcpy connection pending</p>
+                <!-- Screenshot display -->
+                <img
+                  x-show="previewImage && isConnected"
+                  :src="previewImage"
+                  alt="Device screen"
+                  class="absolute inset-0 w-full h-full object-contain"
+                />
+                <!-- Loading overlay -->
+                <div
+                  x-show="previewLoading && !previewImage"
+                  class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
+                >
+                  <i class="fa-solid fa-spinner animate-spin text-2xl text-primary-500 mb-3"></i>
+                  <p class="text-sm">Loading preview...</p>
                 </div>
+                <!-- Disconnected state -->
+                <div
+                  x-show="!isConnected"
+                  class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
+                >
+                  <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
+                    <i class="fa-solid fa-plug-circle-xmark text-2xl text-red-500"></i>
+                  </div>
+                  <p class="text-sm font-medium">Device Disconnected</p>
+                  <p class="text-xs text-gray-600 mt-1">Connect to view screen</p>
+                </div>
+                <!-- Error state -->
+                <div
+                  x-show="previewError && isConnected && !previewLoading"
+                  class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
+                >
+                  <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
+                    <i class="fa-solid fa-triangle-exclamation text-2xl text-yellow-500"></i>
+                  </div>
+                  <p class="text-sm font-medium">Preview Unavailable</p>
+                  <p class="text-xs text-gray-600 mt-1" x-text="previewError"></p>
+                </div>
+                <!-- Timestamp overlay -->
+                <div
+                  x-show="previewTimestamp && previewImage"
+                  class="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded text-xs text-gray-400 font-mono"
+                  x-text="previewTimestamp"
+                ></div>
               </div>
             </div>
 

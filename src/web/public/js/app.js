@@ -40,6 +40,15 @@ function appData() {
       deleting: false
     },
 
+    // Preview State
+    previewImage: null,
+    previewTimestamp: null,
+    previewLoading: false,
+    previewError: null,
+    previewInterval: '2000',
+    previewPaused: false,
+    previewTimer: null,
+
     // Navigation Items
     navItems: [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-gauge-high' },
@@ -604,6 +613,84 @@ function appData() {
         }
         this.lastVolumeValue = newValue;
       }, 150);
+    },
+
+    // --- Preview Methods ---
+
+    /**
+     * Fetch screenshot from device
+     */
+    async fetchScreenshot() {
+      if (!this.isConnected) {
+        this.previewError = 'Device not connected';
+        return;
+      }
+
+      this.previewLoading = true;
+      this.previewError = null;
+
+      try {
+        const res = await fetch('/api/v1/remote/screenshot');
+        const data = await res.json();
+
+        if (data.success) {
+          this.previewImage = data.data.image;
+          this.previewTimestamp = new Date(data.data.timestamp).toLocaleTimeString();
+          this.previewError = null;
+        } else {
+          this.previewError = data.error?.message || 'Failed to capture';
+        }
+      } catch (error) {
+        this.previewError = 'Network error';
+      } finally {
+        this.previewLoading = false;
+      }
+    },
+
+    /**
+     * Start auto-refresh timer for preview
+     */
+    startPreviewRefresh() {
+      this.stopPreviewRefresh();
+
+      const interval = parseInt(this.previewInterval, 10);
+      if (interval === 0 || this.previewPaused) return;
+
+      this.fetchScreenshot();
+      this.previewTimer = setInterval(() => {
+        if (!this.previewPaused && this.isConnected) {
+          this.fetchScreenshot();
+        }
+      }, interval);
+    },
+
+    /**
+     * Stop auto-refresh timer
+     */
+    stopPreviewRefresh() {
+      if (this.previewTimer) {
+        clearInterval(this.previewTimer);
+        this.previewTimer = null;
+      }
+    },
+
+    /**
+     * Restart preview refresh with new interval
+     */
+    restartPreviewRefresh() {
+      if (this.activeTab === 'remote') {
+        this.startPreviewRefresh();
+      }
+    },
+
+    /**
+     * Toggle preview pause state
+     */
+    togglePreviewPause() {
+      this.previewPaused = !this.previewPaused;
+      if (!this.previewPaused && this.activeTab === 'remote') {
+        this.startPreviewRefresh();
+      }
     },
 
     // --- Task Modal Methods ---
