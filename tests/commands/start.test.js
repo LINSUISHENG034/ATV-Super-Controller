@@ -9,12 +9,16 @@ vi.mock('../../src/utils/config.js', () => ({
 vi.mock('../../src/services/adb-client.js', () => ({
   connect: vi.fn(),
   disconnect: vi.fn(),
-  getDevice: vi.fn()
+  getDevice: vi.fn(),
+  startHealthCheck: vi.fn(),
+  stopHealthCheck: vi.fn(),
+  stopReconnect: vi.fn()
 }));
 
 vi.mock('../../src/services/scheduler.js', () => ({
   startScheduler: vi.fn(),
-  stopScheduler: vi.fn()
+  stopScheduler: vi.fn(),
+  recordExecution: vi.fn()
 }));
 
 vi.mock('../../src/utils/logger.js', () => ({
@@ -27,8 +31,8 @@ vi.mock('../../src/utils/logger.js', () => ({
 }));
 
 import { loadConfig } from '../../src/utils/config.js';
-import { connect, disconnect, getDevice } from '../../src/services/adb-client.js';
-import { startScheduler, stopScheduler } from '../../src/services/scheduler.js';
+import { connect, disconnect, getDevice, startHealthCheck } from '../../src/services/adb-client.js';
+import { startScheduler, stopScheduler, recordExecution } from '../../src/services/scheduler.js';
 import { logger } from '../../src/utils/logger.js';
 
 describe('start command', () => {
@@ -55,6 +59,7 @@ describe('start command', () => {
 
       expect(loadConfig).toHaveBeenCalled();
       expect(connect).toHaveBeenCalledWith('192.168.1.100', 5555);
+      expect(startHealthCheck).toHaveBeenCalledTimes(1);
       expect(startScheduler).toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Scheduler started with 1 tasks'));
     });
@@ -75,6 +80,7 @@ describe('start command', () => {
 
       await startCommand();
 
+      expect(startHealthCheck).toHaveBeenCalledTimes(1);
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Scheduler started with 2 tasks'));
     });
   });
@@ -135,6 +141,32 @@ describe('start command', () => {
       expect(onSpy).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
 
       onSpy.mockRestore();
+    });
+  });
+
+  describe('executor device lookup', () => {
+    it('should mark task as failed when device is disconnected at trigger time', async () => {
+      const mockConfig = {
+        device: { ip: '192.168.1.100', port: 5555 },
+        tasks: [
+          { name: 'task1', schedule: '0 0 7 * * *', actions: [{ type: 'wake' }] }
+        ]
+      };
+
+      loadConfig.mockResolvedValue(mockConfig);
+      connect.mockResolvedValue({ connected: true });
+      getDevice.mockReturnValue(null);
+      startScheduler.mockReturnValue({ success: true, taskCount: 1 });
+
+      await startCommand();
+
+      const schedulerExecutor = startScheduler.mock.calls[0][1];
+      await schedulerExecutor(mockConfig.tasks[0]);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Task skipped because device is disconnected')
+      );
+      expect(recordExecution).toHaveBeenCalledTimes(1);
     });
   });
 });

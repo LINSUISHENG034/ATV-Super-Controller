@@ -126,6 +126,19 @@ describe('ADB Client Service', () => {
       // Should not throw
       await expect(adbClient.disconnect()).resolves.not.toThrow();
     });
+
+    it('should stop heartbeat checks when disconnecting', async () => {
+      vi.useFakeTimers();
+      await adbClient.connect('192.168.1.100', 5555);
+      mockDevice.shell.mockResolvedValue({});
+
+      adbClient.startHealthCheck(5000);
+      await adbClient.disconnect();
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(mockDevice.shell).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
   });
 
   describe('getConnectionStatus()', () => {
@@ -143,6 +156,7 @@ describe('ADB Client Service', () => {
 
       expect(status.connected).toBe(true);
       expect(status.device).toBe('192.168.1.100:5555');
+      expect(status.target).toBe('192.168.1.100:5555');
     });
 
     it('should return disconnected status after failed connection', async () => {
@@ -268,6 +282,18 @@ describe('ADB Client Service', () => {
 
   describe('Exponential Backoff Reconnection - AC2, AC3, AC4 (Story 1.5)', () => {
     describe('reconnect()', () => {
+      it('should fail fast when there is no previous connection context', async () => {
+        const { logger } = await import('../../src/utils/logger.js');
+
+        const result = await adbClient.reconnect();
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('NO_CONNECTION_CONTEXT');
+        expect(logger.warn).toHaveBeenCalledWith(
+          'Reconnect requested but no previous connection context exists'
+        );
+      });
+
       it('should use exponential backoff delays: 1s, 2s, 4s, 8s, 16s, 30s', async () => {
         vi.useFakeTimers();
         const { logger } = await import('../../src/utils/logger.js');

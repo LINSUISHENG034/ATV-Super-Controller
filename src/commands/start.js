@@ -2,7 +2,7 @@
  * Start command - starts the scheduler service
  */
 import { loadConfig } from '../utils/config.js';
-import { connect, disconnect, getDevice } from '../services/adb-client.js';
+import { connect, disconnect, getDevice, startHealthCheck, stopHealthCheck, stopReconnect } from '../services/adb-client.js';
 import { startScheduler, stopScheduler, recordExecution } from '../services/scheduler.js';
 import { executeTask, setActionContext } from '../services/executor.js';
 import { logger } from '../utils/logger.js';
@@ -23,6 +23,8 @@ async function gracefulShutdown(signal) {
     webServer = null;
   }
 
+  stopHealthCheck();
+  stopReconnect();
   stopScheduler();
   await disconnect();
 
@@ -53,9 +55,6 @@ export async function startCommand(options = {}) {
       process.exit(1);
     }
 
-    // Get device for task execution
-    const device = getDevice();
-
     // Build context for actions (e.g., play-video needs youtube config)
     const context = {
       youtube: config.youtube
@@ -64,10 +63,28 @@ export async function startCommand(options = {}) {
     // Set global context for Web API calls (executeAction uses this)
     setActionContext(context);
 
+    // Keep ADB connection alive and auto-reconnect on heartbeat failure.
+    startHealthCheck();
+
     // Task executor callback
     const executor = async (task) => {
       const startTime = Date.now();
-      const result = await executeTask(task, device, context);
+      const device = getDevice();
+
+      let result;
+      if (!device) {
+        result = {
+          success: false,
+          status: 'failed',
+          error: 'Device not connected',
+          results: [],
+          duration: 0
+        };
+        logger.warn(`Task skipped because device is disconnected: ${task.name}`);
+      } else {
+        result = await executeTask(task, device, context);
+      }
+
       const endTime = Date.now();
       recordExecution(task.name, result, startTime, endTime);
     };

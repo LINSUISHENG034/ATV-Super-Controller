@@ -41,6 +41,8 @@ async function connect(ip, port = 5555) {
     currentIp = ip;
     currentPort = port;
     connected = true;
+    reconnecting = false;
+    reconnectAttempt = 0;
     lastConnectedAt = new Date();
 
     logger.info(`Connected to device ${target}`);
@@ -63,6 +65,9 @@ async function connect(ip, port = 5555) {
  * Disconnect from the current device
  */
 async function disconnect() {
+  stopHealthCheck();
+  stopReconnect();
+
   if (currentTarget && client) {
     try {
       await client.disconnect(currentTarget);
@@ -87,6 +92,7 @@ function getConnectionStatus() {
   return {
     connected,
     reconnecting,
+    target: currentTarget,
     device: currentTarget,
     reconnectAttempt: reconnecting ? reconnectAttempt + 1 : 0,
     lastConnectedAt
@@ -165,6 +171,13 @@ function sleep(ms) {
  * @returns {Promise<{success: boolean}>}
  */
 async function reconnect() {
+  if (!client || !currentIp || !currentPort) {
+    logger.warn('Reconnect requested but no previous connection context exists');
+    reconnecting = false;
+    reconnectAttempt = 0;
+    return { success: false, error: 'NO_CONNECTION_CONTEXT' };
+  }
+
   reconnecting = true;
   reconnectAttempt = 0;
 
