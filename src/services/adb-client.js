@@ -33,6 +33,10 @@ async function connect(ip, port = 5555) {
       client = Adb.createClient();
     }
 
+    // Always store connection details so reconnect() works after initial failure
+    currentIp = ip;
+    currentPort = port;
+
     const target = `${ip}:${port}`;
     await client.connect(target);
 

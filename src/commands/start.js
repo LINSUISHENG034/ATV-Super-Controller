@@ -2,7 +2,7 @@
  * Start command - starts the scheduler service
  */
 import { loadConfig } from '../utils/config.js';
-import { connect, disconnect, getDevice, startHealthCheck, stopHealthCheck, stopReconnect } from '../services/adb-client.js';
+import { connect, disconnect, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect } from '../services/adb-client.js';
 import { startScheduler, stopScheduler, recordExecution } from '../services/scheduler.js';
 import { executeTask, setActionContext } from '../services/executor.js';
 import { logger } from '../utils/logger.js';
@@ -48,13 +48,6 @@ export async function startCommand(options = {}) {
     const webEnabled = options.web || process.env.ATV_WEB_ENABLED === 'true';
     const webPort = options.webPort || parseInt(process.env.ATV_WEB_PORT || '3000', 10);
 
-    // Connect to device
-    const result = await connect(config.device.ip, config.device.port);
-    if (!result.connected) {
-      logger.error(`Failed to connect to device: ${result.error?.message || 'Unknown error'}`);
-      process.exit(1);
-    }
-
     // Build context for actions (e.g., play-video needs youtube config)
     const context = {
       youtube: config.youtube
@@ -63,8 +56,14 @@ export async function startCommand(options = {}) {
     // Set global context for Web API calls (executeAction uses this)
     setActionContext(context);
 
-    // Keep ADB connection alive and auto-reconnect on heartbeat failure.
-    startHealthCheck();
+    // Connect to device - if unavailable, keep service running and retry
+    const result = await connect(config.device.ip, config.device.port);
+    if (result.connected) {
+      startHealthCheck();
+    } else {
+      logger.warn(`Device unavailable at startup, will retry in background: ${result.error?.message || 'Unknown error'}`);
+      reconnect();
+    }
 
     // Task executor callback
     const executor = async (task) => {
