@@ -45,7 +45,9 @@ LICENSE
 .env
 .env.local
 .env.*.local
-config.json
+config/config.json
+config/config.json.backup
+!config/config.example.json
 
 # BMAD framework files (not needed in production)
 _bmad/
