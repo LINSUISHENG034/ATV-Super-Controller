@@ -6,38 +6,41 @@
 function appData() {
   return {
     // State
-    activeTab: 'dashboard',
+    activeTab: "dashboard",
     isConnected: false,
-    deviceIp: 'Connecting...',
+    deviceIp: "Connecting...",
     tasks: [],
     recentActivity: [],
     logs: [],
-    logFilter: 'all',
+    logFilter: "all",
     isStreaming: false,
-    toast: { visible: false, message: '' },
+    toast: { visible: false, message: "" },
     ws: null,
     volumeSlider: 50,
     lastVolumeValue: 50,
     volumeDebounceTimer: null,
-    serviceVersion: '0.0.0',
+    serviceVersion: "0.0.0",
     serviceUptime: 0,
     showYoutubeModal: false,
-    youtubeUrl: '',
+    youtubeUrl: "",
 
     // Task Modal State
     taskModal: {
       isOpen: false,
-      mode: 'create',
-      task: { name: '', schedule: '', actions: [] },
+      mode: "create",
+      task: { name: "", schedule: "", actions: [] },
+      scheduleType: "daily",
+      time: "07:00",
+      days: [],
       errors: {},
-      saving: false
+      saving: false,
     },
 
     // Delete Confirmation State
     deleteConfirm: {
       isOpen: false,
-      taskName: '',
-      deleting: false
+      taskName: "",
+      deleting: false,
     },
 
     // Preview State
@@ -45,7 +48,7 @@ function appData() {
     previewTimestamp: null,
     previewLoading: false,
     previewError: null,
-    previewInterval: '2000',
+    previewInterval: "2000",
     previewPaused: false,
     previewTimer: null,
 
@@ -54,17 +57,17 @@ function appData() {
 
     // Navigation Items
     navItems: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-gauge-high' },
-      { id: 'tasks', label: 'Tasks', icon: 'fa-solid fa-list-check' },
-      { id: 'remote', label: 'Remote', icon: 'fa-solid fa-gamepad' },
-      { id: 'logs', label: 'Logs', icon: 'fa-solid fa-terminal' }
+      { id: "dashboard", label: "Dashboard", icon: "fa-solid fa-gauge-high" },
+      { id: "tasks", label: "Tasks", icon: "fa-solid fa-list-check" },
+      { id: "remote", label: "Remote", icon: "fa-solid fa-gamepad" },
+      { id: "logs", label: "Logs", icon: "fa-solid fa-terminal" },
     ],
 
     /**
      * Initialize the application
      */
     init() {
-      console.log('Initializing ATV Super Controller Dashboard...');
+      console.log("Initializing ATV Super Controller Dashboard...");
       this.fetchStatus();
       this.fetchTasks();
       this.fetchActivity();
@@ -80,24 +83,24 @@ function appData() {
      */
     async fetchStatus() {
       try {
-        const res = await fetch('/api/v1/status');
+        const res = await fetch("/api/v1/status");
         const data = await res.json();
         if (data.success) {
           this.isConnected = data.data.device.connected;
-          this.deviceIp = data.data.device.target || 'Disconnected';
+          this.deviceIp = data.data.device.target || "Disconnected";
           if (!this.isConnected && data.data.device.reconnecting) {
-              this.deviceIp = 'Reconnecting...';
+            this.deviceIp = "Reconnecting...";
           }
           // Extract service info for sidebar
           if (data.data.service) {
-            this.serviceVersion = data.data.service.version || '0.0.0';
+            this.serviceVersion = data.data.service.version || "0.0.0";
             this.serviceUptime = data.data.service.uptime || 0;
           }
         }
       } catch (error) {
-        console.error('Failed to fetch status:', error);
+        console.error("Failed to fetch status:", error);
         this.isConnected = false;
-        this.deviceIp = 'Offline';
+        this.deviceIp = "Offline";
       }
     },
 
@@ -106,14 +109,14 @@ function appData() {
      */
     async fetchTasks() {
       try {
-        const res = await fetch('/api/v1/tasks');
+        const res = await fetch("/api/v1/tasks");
         const data = await res.json();
         if (data.success) {
           this.tasks = data.data.tasks;
         }
       } catch (error) {
-        console.error('Failed to fetch tasks:', error);
-        this.addLog('Failed to fetch tasks', 'ERROR');
+        console.error("Failed to fetch tasks:", error);
+        this.addLog("Failed to fetch tasks", "ERROR");
       }
     },
 
@@ -122,13 +125,13 @@ function appData() {
      */
     async fetchActivity() {
       try {
-        const res = await fetch('/api/v1/activity');
+        const res = await fetch("/api/v1/activity");
         const data = await res.json();
         if (data.success) {
           this.recentActivity = data.data;
         }
       } catch (error) {
-        console.error('Failed to fetch activity:', error);
+        console.error("Failed to fetch activity:", error);
       }
     },
 
@@ -136,15 +139,15 @@ function appData() {
      * Connect to WebSocket server
      */
     connectWebSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       this.ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log("WebSocket connected");
         this.isStreaming = true;
-        this.ws.send(JSON.stringify({ type: 'subscribe', channel: 'status' }));
-        this.ws.send(JSON.stringify({ type: 'subscribe', channel: 'tasks' }));
-        this.ws.send(JSON.stringify({ type: 'subscribe', channel: 'logs' }));
+        this.ws.send(JSON.stringify({ type: "subscribe", channel: "status" }));
+        this.ws.send(JSON.stringify({ type: "subscribe", channel: "tasks" }));
+        this.ws.send(JSON.stringify({ type: "subscribe", channel: "logs" }));
       };
 
       this.ws.onmessage = (event) => {
@@ -152,18 +155,18 @@ function appData() {
           const message = JSON.parse(event.data);
           this.handleWebSocketMessage(message);
         } catch (error) {
-          console.error('WebSocket message parsing error:', error);
+          console.error("WebSocket message parsing error:", error);
         }
       };
 
       this.ws.onclose = () => {
-        console.log('WebSocket disconnected. Reconnecting in 5s...');
+        console.log("WebSocket disconnected. Reconnecting in 5s...");
         this.isStreaming = false;
         setTimeout(() => this.connectWebSocket(), 5000);
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
       };
     },
 
@@ -171,72 +174,66 @@ function appData() {
      * Handle incoming WebSocket messages
      */
     handleWebSocketMessage(message) {
-      if (message.type === 'status:device:connected') {
+      if (message.type === "status:device:connected") {
         this.isConnected = true;
         this.deviceIp = message.data.target;
-        this.showToast('Device Connected');
-        this.addLog(`Connected to ${message.data.target}`, 'INFO');
-      }
-      else if (message.type === 'status:device:disconnected') {
+        this.showToast("Device Connected");
+        this.addLog(`Connected to ${message.data.target}`, "INFO");
+      } else if (message.type === "status:device:disconnected") {
         this.isConnected = false;
-        this.deviceIp = 'Disconnected';
-        this.showToast('Device Disconnected');
-        this.addLog(`Disconnected from ${message.data.target}`, 'WARN');
-      }
-      else if (message.type === 'task:completed') {
+        this.deviceIp = "Disconnected";
+        this.showToast("Device Disconnected");
+        this.addLog(`Disconnected from ${message.data.target}`, "WARN");
+      } else if (message.type === "task:completed") {
         this.fetchActivity(); // Refresh activity log
         this.fetchTasks(); // Refresh task list for updated next run times
         this.showToast(`Task Completed: ${message.data.task}`);
-        this.addLog(`Task completed: ${message.data.task}`, 'INFO');
+        this.addLog(`Task completed: ${message.data.task}`, "INFO");
 
         // Update task status in list
-        const task = this.tasks.find(t => t.name === message.data.task);
+        const task = this.tasks.find((t) => t.name === message.data.task);
         if (task) {
-          task.lastStatus = 'completed';
+          task.lastStatus = "completed";
           task.lastRunTime = new Date().toLocaleTimeString();
           task.running = false;
         }
-      }
-      else if (message.type === 'task:failed') {
+      } else if (message.type === "task:failed") {
         this.fetchActivity(); // Refresh activity log
         this.fetchTasks(); // Refresh task list
         this.showToast(`Task Failed: ${message.data.task}`);
-        this.addLog(`Task failed: ${message.data.task}`, 'ERROR');
+        this.addLog(`Task failed: ${message.data.task}`, "ERROR");
 
         // Update task status in list
-        const task = this.tasks.find(t => t.name === message.data.task);
+        const task = this.tasks.find((t) => t.name === message.data.task);
         if (task) {
-          task.lastStatus = 'failed';
+          task.lastStatus = "failed";
           task.lastRunTime = new Date().toLocaleTimeString();
           task.running = false;
         }
-      }
-      else if (message.type === 'task:triggered') {
-        this.addLog(`Task triggered: ${message.data.taskName}`, 'INFO');
+      } else if (message.type === "task:triggered") {
+        this.addLog(`Task triggered: ${message.data.taskName}`, "INFO");
 
         // Update task running state
-        const task = this.tasks.find(t => t.name === message.data.taskName);
+        const task = this.tasks.find((t) => t.name === message.data.taskName);
         if (task) {
           task.running = true;
         }
-      }
-      else if (message.type === 'task:enabled' || message.type === 'task:disabled') {
+      } else if (
+        message.type === "task:enabled" ||
+        message.type === "task:disabled"
+      ) {
         // Refresh task list when task is enabled/disabled
         this.fetchTasks();
-      }
-      else if (message.type === 'task:created') {
+      } else if (message.type === "task:created") {
         this.fetchTasks();
         this.showToast(`Task created: ${message.data.task}`);
-      }
-      else if (message.type === 'task:updated') {
+      } else if (message.type === "task:updated") {
         this.fetchTasks();
         this.showToast(`Task updated: ${message.data.task}`);
-      }
-      else if (message.type === 'task:deleted') {
+      } else if (message.type === "task:deleted") {
         this.fetchTasks();
         this.showToast(`Task deleted: ${message.data.task}`);
-      }
-      else if (message.type === 'log:entry') {
+      } else if (message.type === "log:entry") {
         // Handle real-time log streaming
         this.appendLog(message);
       }
@@ -247,7 +244,7 @@ function appData() {
      * @param {string} action - Action name (wake, shutdown, youtube, reconnect)
      */
     async triggerAction(action) {
-      if (action === 'reconnect') {
+      if (action === "reconnect") {
         return this.toggleConnection();
       }
 
@@ -255,33 +252,33 @@ function appData() {
       let endpoint = `/api/v1/actions/${action}`;
       let body = {};
 
-      if (action === 'youtube') {
-        endpoint = '/api/v1/actions/launch-app';
-        body = { package: 'com.google.android.youtube' };
+      if (action === "youtube") {
+        endpoint = "/api/v1/actions/launch-app";
+        body = { package: "com.google.android.youtube" };
       }
 
       try {
         this.showToast(`Sending command: ${action}...`);
         const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
-        
+
         const data = await res.json();
-        
+
         if (data.success) {
           this.showToast(`Action '${action}' initiated`);
-          this.addLog(`Manual action triggered: ${action}`, 'INFO');
+          this.addLog(`Manual action triggered: ${action}`, "INFO");
           // Update activity after short delay to catch the new log entry
           setTimeout(() => this.fetchActivity(), 1000);
         } else {
           this.showToast(`Error: ${data.error.message}`);
-          this.addLog(`Action failed: ${data.error.message}`, 'ERROR');
+          this.addLog(`Action failed: ${data.error.message}`, "ERROR");
         }
       } catch (error) {
-        this.showToast('Network Error');
-        this.addLog(`Network error triggering ${action}`, 'ERROR');
+        this.showToast("Network Error");
+        this.addLog(`Network error triggering ${action}`, "ERROR");
       }
     },
 
@@ -291,33 +288,33 @@ function appData() {
     async playYoutubeVideo() {
       const url = this.youtubeUrl.trim();
       this.showYoutubeModal = false;
-      this.youtubeUrl = '';
+      this.youtubeUrl = "";
 
       // If no URL provided, just launch YouTube app
       if (!url) {
-        return this.triggerAction('youtube');
+        return this.triggerAction("youtube");
       }
 
       try {
-        this.showToast('Playing video...');
-        const res = await fetch('/api/v1/actions/play-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
+        this.showToast("Playing video...");
+        const res = await fetch("/api/v1/actions/play-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
         });
 
         const data = await res.json();
 
         if (data.success) {
-          this.showToast('Video playing');
-          this.addLog(`Playing YouTube video`, 'INFO');
+          this.showToast("Video playing");
+          this.addLog(`Playing YouTube video`, "INFO");
         } else {
           this.showToast(`Error: ${data.error.message}`);
-          this.addLog(`Play video failed: ${data.error.message}`, 'ERROR');
+          this.addLog(`Play video failed: ${data.error.message}`, "ERROR");
         }
       } catch (error) {
-        this.showToast('Network Error');
-        this.addLog('Network error playing video', 'ERROR');
+        this.showToast("Network Error");
+        this.addLog("Network error playing video", "ERROR");
       }
     },
 
@@ -325,16 +322,16 @@ function appData() {
      * Toggle connection (Reconnect logic)
      */
     async toggleConnection() {
-      this.showToast('Reconnecting...');
-      this.deviceIp = 'Reconnecting...';
+      this.showToast("Reconnecting...");
+      this.deviceIp = "Reconnecting...";
       try {
-        const res = await fetch('/api/v1/device/reconnect', { method: 'POST' });
+        const res = await fetch("/api/v1/device/reconnect", { method: "POST" });
         const data = await res.json();
         if (!data.success) {
-             this.showToast(`Reconnect failed: ${data.error.message}`);
+          this.showToast(`Reconnect failed: ${data.error.message}`);
         }
       } catch (error) {
-        this.showToast('Reconnect request failed');
+        this.showToast("Reconnect request failed");
       }
     },
 
@@ -344,7 +341,9 @@ function appData() {
     showToast(message) {
       this.toast.message = message;
       this.toast.visible = true;
-      setTimeout(() => { this.toast.visible = false }, 3000);
+      setTimeout(() => {
+        this.toast.visible = false;
+      }, 3000);
     },
 
     /**
@@ -352,14 +351,14 @@ function appData() {
      */
     async loadLogs() {
       try {
-        const res = await fetch('/api/v1/logs?limit=100');
+        const res = await fetch("/api/v1/logs?limit=100");
         const data = await res.json();
         if (data.success) {
           this.logs = data.data.logs;
           this.scrollLogsToBottom();
         }
       } catch (error) {
-        console.error('Failed to load logs:', error);
+        console.error("Failed to load logs:", error);
       }
     },
 
@@ -375,11 +374,11 @@ function appData() {
      * Get filtered logs based on current filter
      */
     get filteredLogs() {
-      if (this.logFilter === 'all') {
+      if (this.logFilter === "all") {
         return this.logs;
       }
       const upperFilter = this.logFilter.toUpperCase();
-      return this.logs.filter(log => log.level === upperFilter);
+      return this.logs.filter((log) => log.level === upperFilter);
     },
 
     /**
@@ -390,7 +389,7 @@ function appData() {
       const entry = {
         timestamp: message.timestamp,
         level: message.data.level,
-        message: message.data.message
+        message: message.data.message,
       };
       this.logs.push(entry);
       // Keep buffer size limited
@@ -407,7 +406,7 @@ function appData() {
      */
     formatLogTime(timestamp) {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('en-GB', { hour12: false });
+      return date.toLocaleTimeString("en-GB", { hour12: false });
     },
 
     /**
@@ -417,12 +416,12 @@ function appData() {
      */
     getLogLevelClass(level) {
       const classes = {
-        'INFO': 'text-green-400',
-        'WARN': 'text-yellow-400',
-        'ERROR': 'text-red-400 font-semibold',
-        'DEBUG': 'text-blue-400'
+        INFO: "text-green-400",
+        WARN: "text-yellow-400",
+        ERROR: "text-red-400 font-semibold",
+        DEBUG: "text-blue-400",
       };
-      return classes[level] || 'text-gray-400';
+      return classes[level] || "text-gray-400";
     },
 
     /**
@@ -442,11 +441,11 @@ function appData() {
      * @param {string} message - Log message
      * @param {string} level - Log level (INFO, WARN, ERROR, DEBUG)
      */
-    addLog(message, level = 'INFO') {
+    addLog(message, level = "INFO") {
       const entry = {
         timestamp: new Date().toISOString(),
         level: level.toUpperCase(),
-        message
+        message,
       };
       this.logs.push(entry);
       // Keep buffer size limited
@@ -461,7 +460,7 @@ function appData() {
      * @param {number} ms - Milliseconds to delay
      */
     delay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+      return new Promise((resolve) => setTimeout(resolve, ms));
     },
 
     /**
@@ -472,7 +471,8 @@ function appData() {
     formatUptime(seconds) {
       if (seconds < 60) return `${seconds}s`;
       if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+      if (seconds < 86400)
+        return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
       return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
     },
 
@@ -482,7 +482,7 @@ function appData() {
      * @param {boolean} enabled - New enabled state
      */
     async toggleTask(taskName, enabled) {
-      const task = this.tasks.find(t => t.name === taskName);
+      const task = this.tasks.find((t) => t.name === taskName);
       if (!task) return;
 
       // Optimistic UI update
@@ -491,28 +491,36 @@ function appData() {
       task.toggling = true;
 
       try {
-        const res = await fetch(`/api/v1/tasks/${encodeURIComponent(taskName)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled })
-        });
+        const res = await fetch(
+          `/api/v1/tasks/${encodeURIComponent(taskName)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled }),
+          },
+        );
 
         const data = await res.json();
 
         if (data.success) {
-          this.showToast(`Task ${taskName} ${enabled ? 'enabled' : 'disabled'}`);
-          this.addLog(`Task ${taskName} ${enabled ? 'enabled' : 'disabled'}`, 'INFO');
+          this.showToast(
+            `Task ${taskName} ${enabled ? "enabled" : "disabled"}`,
+          );
+          this.addLog(
+            `Task ${taskName} ${enabled ? "enabled" : "disabled"}`,
+            "INFO",
+          );
         } else {
           // Revert on error
           task.enabled = originalState;
           this.showToast(`Error: ${data.error.message}`);
-          this.addLog(`Toggle failed: ${data.error.message}`, 'ERROR');
+          this.addLog(`Toggle failed: ${data.error.message}`, "ERROR");
         }
       } catch (error) {
         // Revert on network error
         task.enabled = originalState;
-        this.showToast('Network Error');
-        this.addLog(`Network error toggling task ${taskName}`, 'ERROR');
+        this.showToast("Network Error");
+        this.addLog(`Network error toggling task ${taskName}`, "ERROR");
       } finally {
         task.toggling = false;
       }
@@ -523,37 +531,40 @@ function appData() {
      * @param {string} taskName - Name of the task to run
      */
     async runTask(taskName) {
-      const task = this.tasks.find(t => t.name === taskName);
+      const task = this.tasks.find((t) => t.name === taskName);
       if (!task) return;
 
       if (task.running) {
-        this.showToast('Task already running');
+        this.showToast("Task already running");
         return;
       }
 
       task.running = true;
 
       try {
-        const res = await fetch(`/api/v1/tasks/${encodeURIComponent(taskName)}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
+        const res = await fetch(
+          `/api/v1/tasks/${encodeURIComponent(taskName)}/run`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          },
+        );
 
         const data = await res.json();
 
         if (data.success) {
           this.showToast(`Task triggered: ${taskName}`);
-          this.addLog(`Manual trigger: ${taskName}`, 'INFO');
+          this.addLog(`Manual trigger: ${taskName}`, "INFO");
           // Note: task.running will be reset by WebSocket task:completed/task:failed events
         } else {
           task.running = false;
           this.showToast(`Error: ${data.error.message}`);
-          this.addLog(`Run failed: ${data.error.message}`, 'ERROR');
+          this.addLog(`Run failed: ${data.error.message}`, "ERROR");
         }
       } catch (error) {
         task.running = false;
-        this.showToast('Network Error');
-        this.addLog(`Network error running task ${taskName}`, 'ERROR');
+        this.showToast("Network Error");
+        this.addLog(`Network error running task ${taskName}`, "ERROR");
       }
     },
 
@@ -563,24 +574,24 @@ function appData() {
      */
     async sendKeyEvent(keycode) {
       try {
-        const res = await fetch('/api/v1/remote/key', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ keycode })
+        const res = await fetch("/api/v1/remote/key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keycode }),
         });
 
         const data = await res.json();
 
         if (data.success) {
-          this.showToast(`Sent: ${keycode.replace('KEYCODE_', '')}`);
-          this.addLog(`Key sent: ${keycode}`, 'DEBUG');
+          this.showToast(`Sent: ${keycode.replace("KEYCODE_", "")}`);
+          this.addLog(`Key sent: ${keycode}`, "DEBUG");
         } else {
           this.showToast(`Error: ${data.error.message}`);
-          this.addLog(`Key send failed: ${data.error.message}`, 'ERROR');
+          this.addLog(`Key send failed: ${data.error.message}`, "ERROR");
         }
       } catch (error) {
-        this.showToast('Network Error');
-        this.addLog(`Network error sending key ${keycode}`, 'ERROR');
+        this.showToast("Network Error");
+        this.addLog(`Network error sending key ${keycode}`, "ERROR");
       }
     },
 
@@ -593,19 +604,21 @@ function appData() {
     sendKeyEventWs(keycode, event) {
       // Visual feedback on button press
       if (event?.target) {
-        const btn = event.target.closest('.remote-btn');
+        const btn = event.target.closest(".remote-btn");
         if (btn) {
-          btn.classList.add('pressed');
-          setTimeout(() => btn.classList.remove('pressed'), 150);
+          btn.classList.add("pressed");
+          setTimeout(() => btn.classList.remove("pressed"), 150);
         }
       }
 
       // Try WebSocket first
       if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({
-          type: 'remote:key',
-          keycode
-        }));
+        this.ws.send(
+          JSON.stringify({
+            type: "remote:key",
+            keycode,
+          }),
+        );
         return;
       }
 
@@ -632,14 +645,14 @@ function appData() {
           // Volume increased - send volume up events with delay between each
           const steps = Math.min(Math.ceil(diff / 10), 5);
           for (let i = 0; i < steps; i++) {
-            await this.sendKeyEvent('KEYCODE_VOLUME_UP');
+            await this.sendKeyEvent("KEYCODE_VOLUME_UP");
             if (i < steps - 1) await this.delay(50);
           }
         } else if (diff < 0) {
           // Volume decreased - send volume down events with delay between each
           const steps = Math.min(Math.ceil(Math.abs(diff) / 10), 5);
           for (let i = 0; i < steps; i++) {
-            await this.sendKeyEvent('KEYCODE_VOLUME_DOWN');
+            await this.sendKeyEvent("KEYCODE_VOLUME_DOWN");
             if (i < steps - 1) await this.delay(50);
           }
         }
@@ -656,29 +669,32 @@ function appData() {
       this.preventingTimeout = true;
 
       try {
-        const res = await fetch('/api/v1/actions/prevent-adb-timeout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
+        const res = await fetch("/api/v1/actions/prevent-adb-timeout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
         });
 
         const data = await res.json();
 
         if (data.success) {
-          const status = data.data?.status || 'success';
-          if (status === 'already_disabled') {
-            this.showToast('ADB timeout already disabled');
+          const status = data.data?.status || "success";
+          if (status === "already_disabled") {
+            this.showToast("ADB timeout already disabled");
           } else {
-            this.showToast('ADB timeout disabled successfully');
+            this.showToast("ADB timeout disabled successfully");
           }
-          this.addLog('ADB timeout prevention applied', 'INFO');
+          this.addLog("ADB timeout prevention applied", "INFO");
         } else {
           this.showToast(`Error: ${data.error.message}`);
-          this.addLog(`ADB timeout prevention failed: ${data.error.message}`, 'ERROR');
+          this.addLog(
+            `ADB timeout prevention failed: ${data.error.message}`,
+            "ERROR",
+          );
         }
       } catch (error) {
-        this.showToast('Network Error');
-        this.addLog('Network error preventing ADB timeout', 'ERROR');
+        this.showToast("Network Error");
+        this.addLog("Network error preventing ADB timeout", "ERROR");
       } finally {
         this.preventingTimeout = false;
       }
@@ -691,7 +707,7 @@ function appData() {
      */
     async fetchScreenshot() {
       if (!this.isConnected) {
-        this.previewError = 'Device not connected';
+        this.previewError = "Device not connected";
         return;
       }
 
@@ -699,18 +715,20 @@ function appData() {
       this.previewError = null;
 
       try {
-        const res = await fetch('/api/v1/remote/screenshot');
+        const res = await fetch("/api/v1/remote/screenshot");
         const data = await res.json();
 
         if (data.success) {
           this.previewImage = data.data.image;
-          this.previewTimestamp = new Date(data.data.timestamp).toLocaleTimeString();
+          this.previewTimestamp = new Date(
+            data.data.timestamp,
+          ).toLocaleTimeString();
           this.previewError = null;
         } else {
-          this.previewError = data.error?.message || 'Failed to capture';
+          this.previewError = data.error?.message || "Failed to capture";
         }
       } catch (error) {
-        this.previewError = 'Network error';
+        this.previewError = "Network error";
       } finally {
         this.previewLoading = false;
       }
@@ -747,7 +765,7 @@ function appData() {
      * Restart preview refresh with new interval
      */
     restartPreviewRefresh() {
-      if (this.activeTab === 'remote') {
+      if (this.activeTab === "remote") {
         this.startPreviewRefresh();
       }
     },
@@ -757,7 +775,7 @@ function appData() {
      */
     togglePreviewPause() {
       this.previewPaused = !this.previewPaused;
-      if (!this.previewPaused && this.activeTab === 'remote') {
+      if (!this.previewPaused && this.activeTab === "remote") {
         this.startPreviewRefresh();
       }
     },
@@ -770,10 +788,13 @@ function appData() {
     openCreateModal() {
       this.taskModal = {
         isOpen: true,
-        mode: 'create',
-        task: { name: '', schedule: '', actions: [{ type: 'wake' }] },
+        mode: "create",
+        task: { name: "", schedule: "", actions: [{ type: "wake" }] },
+        scheduleType: "daily",
+        time: "07:00",
+        days: [],
         errors: {},
-        saving: false
+        saving: false,
       };
     },
 
@@ -782,17 +803,21 @@ function appData() {
      * @param {object} task - Task to edit
      */
     openEditModal(task) {
+      const parsed = this.parseCronToUI(task.cron);
       this.taskModal = {
         isOpen: true,
-        mode: 'edit',
+        mode: "edit",
         task: {
           name: task.name,
           schedule: task.cron,
-          actions: JSON.parse(JSON.stringify(task.actions || []))
+          actions: JSON.parse(JSON.stringify(task.actions || [])),
         },
+        scheduleType: parsed.scheduleType,
+        time: parsed.time,
+        days: parsed.days,
         originalName: task.name,
         errors: {},
-        saving: false
+        saving: false,
       };
     },
 
@@ -804,6 +829,59 @@ function appData() {
     },
 
     /**
+     * Parse existing cron to UI state
+     * @param {string} cron - 6-field cron expression
+     * @returns {object} { scheduleType, time, days }
+     */
+    parseCronToUI(cron) {
+      if (!cron) return { scheduleType: "daily", time: "07:00", days: [] };
+      const parts = cron.trim().split(/\s+/);
+      if (parts.length !== 6)
+        return { scheduleType: "advanced", time: "07:00", days: [] };
+
+      const [sec, min, hour, dom, mon, dow] = parts;
+
+      if (sec === "0" && dom === "*" && mon === "*") {
+        const time = `${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
+        // Validate hours and minutes are simple numbers
+        if (/^\d+$/.test(hour) && /^\d+$/.test(min)) {
+          if (dow === "*") {
+            return { scheduleType: "daily", time, days: [] };
+          } else if (/^[0-6](,[0-6])*$/.test(dow)) {
+            return { scheduleType: "weekly", time, days: dow.split(",") };
+          }
+        }
+      }
+      return { scheduleType: "advanced", time: "07:00", days: [] };
+    },
+
+    /**
+     * Generate cron string from UI state
+     * @returns {string} Generated 6-field cron expression
+     */
+    generateCronFromUI() {
+      if (this.taskModal.scheduleType === "advanced") {
+        return this.taskModal.task.schedule;
+      }
+
+      const [hour, min] = this.taskModal.time.split(":");
+      const formattedHour = parseInt(hour, 10).toString(); // remove leading zeros for cron
+      const formattedMin = parseInt(min, 10).toString();
+
+      if (this.taskModal.scheduleType === "daily") {
+        return `0 ${formattedMin} ${formattedHour} * * *`;
+      } else if (this.taskModal.scheduleType === "weekly") {
+        const dow =
+          this.taskModal.days.length > 0
+            ? this.taskModal.days.sort().join(",")
+            : "*";
+        return `0 ${formattedMin} ${formattedHour} * * ${dow}`;
+      }
+
+      return this.taskModal.task.schedule;
+    },
+
+    /**
      * Validate task form
      * @returns {boolean} True if valid
      */
@@ -811,15 +889,28 @@ function appData() {
       this.taskModal.errors = {};
 
       if (!this.taskModal.task.name.trim()) {
-        this.taskModal.errors.name = 'Task name is required';
+        this.taskModal.errors.name = "Task name is required";
       }
 
-      if (!this.taskModal.task.schedule.trim()) {
-        this.taskModal.errors.schedule = 'Schedule is required';
+      if (this.taskModal.scheduleType === "advanced") {
+        if (
+          !this.taskModal.task.schedule ||
+          !this.taskModal.task.schedule.trim()
+        ) {
+          this.taskModal.errors.schedule = "Schedule is required";
+        }
+      } else if (
+        this.taskModal.scheduleType === "weekly" &&
+        this.taskModal.days.length === 0
+      ) {
+        this.taskModal.errors.schedule = "Please select at least one day";
       }
 
-      if (!this.taskModal.task.actions || this.taskModal.task.actions.length === 0) {
-        this.taskModal.errors.actions = 'At least one action is required';
+      if (
+        !this.taskModal.task.actions ||
+        this.taskModal.task.actions.length === 0
+      ) {
+        this.taskModal.errors.actions = "At least one action is required";
       }
 
       return Object.keys(this.taskModal.errors).length === 0;
@@ -829,34 +920,39 @@ function appData() {
      * Save task (create or update)
      */
     async saveTask() {
+      // First generate cron before validation if not in advanced mode
+      if (this.taskModal.scheduleType !== "advanced") {
+        this.taskModal.task.schedule = this.generateCronFromUI();
+      }
+
       if (!this.validateTaskForm()) return;
 
       this.taskModal.saving = true;
 
       try {
-        const isEdit = this.taskModal.mode === 'edit';
+        const isEdit = this.taskModal.mode === "edit";
         const url = isEdit
           ? `/api/v1/tasks/${encodeURIComponent(this.taskModal.originalName)}`
-          : '/api/v1/tasks';
-        const method = isEdit ? 'PUT' : 'POST';
+          : "/api/v1/tasks";
+        const method = isEdit ? "PUT" : "POST";
 
         const res = await fetch(url, {
           method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this.taskModal.task)
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this.taskModal.task),
         });
 
         const data = await res.json();
 
         if (data.success) {
-          this.showToast(`Task ${isEdit ? 'updated' : 'created'} successfully`);
+          this.showToast(`Task ${isEdit ? "updated" : "created"} successfully`);
           this.closeTaskModal();
           this.fetchTasks();
         } else {
           this.taskModal.errors.name = data.error.message;
         }
       } catch (error) {
-        this.showToast('Network error');
+        this.showToast("Network error");
       } finally {
         this.taskModal.saving = false;
       }
@@ -870,7 +966,7 @@ function appData() {
       this.deleteConfirm = {
         isOpen: true,
         taskName,
-        deleting: false
+        deleting: false,
       };
     },
 
@@ -881,21 +977,24 @@ function appData() {
       this.deleteConfirm.deleting = true;
 
       try {
-        const res = await fetch(`/api/v1/tasks/${encodeURIComponent(this.deleteConfirm.taskName)}`, {
-          method: 'DELETE'
-        });
+        const res = await fetch(
+          `/api/v1/tasks/${encodeURIComponent(this.deleteConfirm.taskName)}`,
+          {
+            method: "DELETE",
+          },
+        );
 
         const data = await res.json();
 
         if (data.success) {
-          this.showToast('Task deleted');
+          this.showToast("Task deleted");
           this.deleteConfirm.isOpen = false;
           this.fetchTasks();
         } else {
           this.showToast(`Error: ${data.error.message}`);
         }
       } catch (error) {
-        this.showToast('Network error');
+        this.showToast("Network error");
       } finally {
         this.deleteConfirm.deleting = false;
       }
@@ -905,7 +1004,7 @@ function appData() {
      * Add a new action to the task
      */
     addAction() {
-      this.taskModal.task.actions.push({ type: 'wake' });
+      this.taskModal.task.actions.push({ type: "wake" });
     },
 
     /**
@@ -923,7 +1022,8 @@ function appData() {
      */
     moveAction(index, direction) {
       const newIndex = index + direction;
-      if (newIndex < 0 || newIndex >= this.taskModal.task.actions.length) return;
+      if (newIndex < 0 || newIndex >= this.taskModal.task.actions.length)
+        return;
 
       const actions = this.taskModal.task.actions;
       [actions[index], actions[newIndex]] = [actions[newIndex], actions[index]];
@@ -938,14 +1038,14 @@ function appData() {
       const type = action.type;
 
       // Clear all params except type
-      Object.keys(action).forEach(key => {
-        if (key !== 'type') delete action[key];
+      Object.keys(action).forEach((key) => {
+        if (key !== "type") delete action[key];
       });
 
       // Set defaults for new type
-      if (type === 'wait') action.duration = 5000;
-      if (type === 'play-video') action.url = '';
-      if (type === 'launch-app') action.package = '';
+      if (type === "wait") action.duration = 5000;
+      if (type === "play-video") action.url = "";
+      if (type === "launch-app") action.package = "";
     },
 
     /**
@@ -964,27 +1064,27 @@ function appData() {
      * @returns {string} Human-readable description
      */
     describeCron(cron) {
-      if (!cron) return '';
+      if (!cron) return "";
 
       const parts = cron.trim().split(/\s+/);
-      if (parts.length !== 6) return 'Invalid cron format (need 6 fields)';
+      if (parts.length !== 6) return "Invalid cron format (need 6 fields)";
 
       const [sec, min, hour, dom, mon, dow] = parts;
 
       // Simple descriptions for common patterns
-      if (sec === '0' && min === '0' && hour === '*') {
-        return 'Runs every hour at :00';
+      if (sec === "0" && min === "0" && hour === "*") {
+        return "Runs every hour at :00";
       }
-      if (sec === '0' && min === '0' && dom === '*' && mon === '*') {
-        if (dow === '*') return `Runs daily at ${hour}:00`;
-        if (dow === '1-5') return `Runs weekdays at ${hour}:00`;
-        if (dow === '0,6') return `Runs weekends at ${hour}:00`;
+      if (sec === "0" && min === "0" && dom === "*" && mon === "*") {
+        if (dow === "*") return `Runs daily at ${hour}:00`;
+        if (dow === "1-5") return `Runs weekdays at ${hour}:00`;
+        if (dow === "0,6") return `Runs weekends at ${hour}:00`;
       }
-      if (sec === '0' && dom === '*' && mon === '*' && dow === '*') {
-        return `Runs daily at ${hour}:${min.padStart(2, '0')}`;
+      if (sec === "0" && dom === "*" && mon === "*" && dow === "*") {
+        return `Runs daily at ${hour}:${min.padStart(2, "0")}`;
       }
 
       return `Runs at second ${sec}, minute ${min}, hour ${hour}`;
     },
-  }
+  };
 }

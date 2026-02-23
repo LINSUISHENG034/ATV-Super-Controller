@@ -27,7 +27,9 @@
 
     <!-- Prevent FOUC with x-cloak -->
     <style>
-      [x-cloak] { display: none !important; }
+      [x-cloak] {
+        display: none !important;
+      }
 
       /* Remote button press feedback */
       .remote-btn.pressed {
@@ -86,7 +88,11 @@
           <h1 class="text-xl font-bold tracking-tight">ATV Controller</h1>
         </div>
 
-        <nav class="flex-1 px-4 space-y-2" role="navigation" aria-label="Main navigation">
+        <nav
+          class="flex-1 px-4 space-y-2"
+          role="navigation"
+          aria-label="Main navigation"
+        >
           <template x-for="item in navItems" :key="item.id">
             <a
               href="#"
@@ -95,7 +101,11 @@
               :aria-current="activeTab === item.id ? 'page' : false"
               class="flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg border-l-2 transition-all duration-200 cursor-pointer focus-ring focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              <i :class="item.icon" class="w-5 text-center" aria-hidden="true"></i>
+              <i
+                :class="item.icon"
+                class="w-5 text-center"
+                aria-hidden="true"
+              ></i>
               <span x-text="item.label"></span>
             </a>
           </template>
@@ -314,7 +324,11 @@
           >
             <!-- Header with Create Button -->
             <div class="flex items-center justify-between mb-4">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Scheduled Tasks</h3>
+              <h3
+                class="text-sm font-semibold text-gray-400 uppercase tracking-wider"
+              >
+                Scheduled Tasks
+              </h3>
               <button
                 @click="openCreateModal()"
                 class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
@@ -329,11 +343,19 @@
               x-show="!tasks || tasks.length === 0"
               class="flex flex-col items-center justify-center py-16 text-center"
             >
-              <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                <i class="fa-solid fa-calendar-xmark text-gray-600 text-2xl"></i>
+              <div
+                class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4"
+              >
+                <i
+                  class="fa-solid fa-calendar-xmark text-gray-600 text-2xl"
+                ></i>
               </div>
-              <h3 class="text-lg font-medium text-gray-400 mb-2">No scheduled tasks</h3>
-              <p class="text-sm text-gray-600 mb-4">Tasks will appear here when configured</p>
+              <h3 class="text-lg font-medium text-gray-400 mb-2">
+                No scheduled tasks
+              </h3>
+              <p class="text-sm text-gray-600 mb-4">
+                Tasks will appear here when configured
+              </p>
               <button
                 @click="openCreateModal()"
                 class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
@@ -402,7 +424,9 @@
                         :class="task.running ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-play'"
                         class="text-xs"
                       ></i>
-                      <span x-text="task.running ? 'Running...' : 'Run Now'"></span>
+                      <span
+                        x-text="task.running ? 'Running...' : 'Run Now'"
+                      ></span>
                     </button>
 
                     <!-- Mobile Run Now (icon only) -->
@@ -471,7 +495,11 @@
             <!-- TV Preview -->
             <div class="flex-1 flex flex-col min-h-0">
               <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Live Preview</h3>
+                <h3
+                  class="text-sm font-semibold text-gray-400 uppercase tracking-wider"
+                >
+                  Live Preview
+                </h3>
                 <div class="flex items-center gap-3">
                   <!-- Refresh interval selector -->
                   <select
@@ -490,7 +518,9 @@
                     class="px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 transition-colors text-xs"
                     :title="previewPaused ? 'Resume' : 'Pause'"
                   >
-                    <i :class="previewPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause'"></i>
+                    <i
+                      :class="previewPaused ? 'fa-solid fa-play' : 'fa-solid fa-pause'"
+                    ></i>
                   </button>
                   <!-- Manual refresh button -->
                   <button
@@ -499,12 +529,19 @@
                     class="px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600 transition-colors text-xs disabled:opacity-50"
                     title="Refresh now"
                   >
-                    <i :class="previewLoading ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-rotate'"></i>
+                    <i
+                      :class="previewLoading ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-rotate'"
+                    ></i>
                   </button>
-                  <span class="text-xs text-gray-500 font-mono" x-text="deviceIp + ':5555'"></span>
+                  <span
+                    class="text-xs text-gray-500 font-mono"
+                    x-text="deviceIp + ':5555'"
+                  ></span>
                 </div>
               </div>
-              <div class="relative flex-1 bg-gray-950 rounded-xl border border-gray-700 overflow-hidden min-h-[200px]">
+              <div
+                class="relative flex-1 bg-gray-950 rounded-xl border border-gray-700 overflow-hidden min-h-[200px]"
+              >
                 <!-- Screenshot display -->
                 <img
                   x-show="previewImage && isConnected"
@@ -517,7 +554,9 @@
                   x-show="previewLoading && !previewImage"
                   class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
                 >
-                  <i class="fa-solid fa-spinner animate-spin text-2xl text-primary-500 mb-3"></i>
+                  <i
+                    class="fa-solid fa-spinner animate-spin text-2xl text-primary-500 mb-3"
+                  ></i>
                   <p class="text-sm">Loading preview...</p>
                 </div>
                 <!-- Disconnected state -->
@@ -525,22 +564,35 @@
                   x-show="!isConnected"
                   class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
                 >
-                  <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-                    <i class="fa-solid fa-plug-circle-xmark text-2xl text-red-500"></i>
+                  <div
+                    class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4"
+                  >
+                    <i
+                      class="fa-solid fa-plug-circle-xmark text-2xl text-red-500"
+                    ></i>
                   </div>
                   <p class="text-sm font-medium">Device Disconnected</p>
-                  <p class="text-xs text-gray-600 mt-1">Connect to view screen</p>
+                  <p class="text-xs text-gray-600 mt-1">
+                    Connect to view screen
+                  </p>
                 </div>
                 <!-- Error state -->
                 <div
                   x-show="previewError && isConnected && !previewLoading"
                   class="absolute inset-0 flex flex-col items-center justify-center text-gray-500"
                 >
-                  <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-                    <i class="fa-solid fa-triangle-exclamation text-2xl text-yellow-500"></i>
+                  <div
+                    class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4"
+                  >
+                    <i
+                      class="fa-solid fa-triangle-exclamation text-2xl text-yellow-500"
+                    ></i>
                   </div>
                   <p class="text-sm font-medium">Preview Unavailable</p>
-                  <p class="text-xs text-gray-600 mt-1" x-text="previewError"></p>
+                  <p
+                    class="text-xs text-gray-600 mt-1"
+                    x-text="previewError"
+                  ></p>
                 </div>
                 <!-- Timestamp overlay -->
                 <div
@@ -552,10 +604,16 @@
             </div>
 
             <!-- Remote Control Panel -->
-            <div class="lg:w-72 flex flex-col items-center justify-center space-y-6 py-4 lg:py-0">
+            <div
+              class="lg:w-72 flex flex-col items-center justify-center space-y-6 py-4 lg:py-0"
+            >
               <!-- D-Pad -->
-              <div class="relative w-44 h-44 bg-gradient-to-b from-gray-800 to-gray-900 rounded-full border-4 border-gray-700/80 shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.05)] flex items-center justify-center">
-                <div class="absolute inset-2 rounded-full border border-gray-700/30 pointer-events-none"></div>
+              <div
+                class="relative w-44 h-44 bg-gradient-to-b from-gray-800 to-gray-900 rounded-full border-4 border-gray-700/80 shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.05)] flex items-center justify-center"
+              >
+                <div
+                  class="absolute inset-2 rounded-full border border-gray-700/30 pointer-events-none"
+                ></div>
                 <!-- Up Button -->
                 <button
                   @click="sendKeyEventWs('KEYCODE_DPAD_UP', $event)"
@@ -606,8 +664,13 @@
                   aria-label="Back"
                   class="remote-btn flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
-                  <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
-                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i>
+                  <div
+                    class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring"
+                  >
+                    <i
+                      class="fa-solid fa-arrow-left text-sm"
+                      aria-hidden="true"
+                    ></i>
                   </div>
                   <span class="text-[10px] font-medium">Back</span>
                 </button>
@@ -617,7 +680,9 @@
                   aria-label="Home"
                   class="remote-btn flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
-                  <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
+                  <div
+                    class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring"
+                  >
                     <i class="fa-solid fa-house text-sm" aria-hidden="true"></i>
                   </div>
                   <span class="text-[10px] font-medium">Home</span>
@@ -628,8 +693,13 @@
                   aria-label="Volume Up"
                   class="remote-btn flex flex-col items-center gap-1.5 text-gray-400 hover:text-white active:scale-90 transition-all duration-150 cursor-pointer group"
                 >
-                  <div class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring">
-                    <i class="fa-solid fa-volume-high text-sm" aria-hidden="true"></i>
+                  <div
+                    class="w-12 h-12 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center border border-gray-700 shadow-lg group-hover:border-gray-600 transition-all focus-ring"
+                  >
+                    <i
+                      class="fa-solid fa-volume-high text-sm"
+                      aria-hidden="true"
+                    ></i>
                   </div>
                   <span class="text-[10px] font-medium">Vol +</span>
                 </button>
@@ -653,16 +723,27 @@
 
               <!-- Device Settings -->
               <div class="w-full max-w-xs mt-6 pt-6 border-t border-gray-700">
-                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Device Settings</h4>
+                <h4
+                  class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3"
+                >
+                  Device Settings
+                </h4>
                 <button
                   @click="preventAdbTimeout()"
                   :disabled="!isConnected || preventingTimeout"
                   class="w-full py-2.5 px-4 rounded-lg bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700 hover:border-orange-500/50 hover:shadow-[0_0_15px_rgba(249,115,22,0.2)] text-gray-300 hover:text-white text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <i :class="preventingTimeout ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-shield-halved'" class="text-orange-500"></i>
-                  <span x-text="preventingTimeout ? 'Applying...' : 'Prevent ADB Timeout'"></span>
+                  <i
+                    :class="preventingTimeout ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-shield-halved'"
+                    class="text-orange-500"
+                  ></i>
+                  <span
+                    x-text="preventingTimeout ? 'Applying...' : 'Prevent ADB Timeout'"
+                  ></span>
                 </button>
-                <p class="text-xs text-gray-600 mt-2 text-center">Disables automatic ADB disconnection</p>
+                <p class="text-xs text-gray-600 mt-2 text-center">
+                  Disables automatic ADB disconnection
+                </p>
               </div>
             </div>
           </div>
@@ -719,9 +800,15 @@
               x-ref="logContainer"
               class="flex-1 bg-gray-950 rounded-lg border border-gray-800 p-4 font-mono text-sm overflow-y-auto max-h-[calc(100vh-200px)]"
             >
-              <template x-for="(log, index) in filteredLogs" :key="log.timestamp + '-' + index">
+              <template
+                x-for="(log, index) in filteredLogs"
+                :key="log.timestamp + '-' + index"
+              >
                 <div class="flex gap-2 leading-relaxed">
-                  <span class="text-gray-500 text-xs shrink-0" x-text="formatLogTime(log.timestamp)"></span>
+                  <span
+                    class="text-gray-500 text-xs shrink-0"
+                    x-text="formatLogTime(log.timestamp)"
+                  ></span>
                   <span
                     class="shrink-0 w-12 text-xs font-medium"
                     :class="getLogLevelClass(log.level)"
@@ -732,7 +819,9 @@
               </template>
               <!-- Blinking cursor for live streaming -->
               <div x-show="isStreaming" class="flex items-center gap-1 mt-1">
-                <span class="w-2 h-4 bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"></span>
+                <span
+                  class="w-2 h-4 bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]"
+                ></span>
               </div>
             </div>
           </div>
@@ -775,14 +864,21 @@
         aria-modal="true"
         aria-labelledby="youtube-modal-title"
       >
-        <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md shadow-2xl">
-          <h3 id="youtube-modal-title" class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <div
+          class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md shadow-2xl"
+        >
+          <h3
+            id="youtube-modal-title"
+            class="text-lg font-semibold mb-4 flex items-center gap-2"
+          >
             <i class="fa-brands fa-youtube text-red-500"></i>
             Play YouTube Video
           </h3>
           <div class="space-y-4">
             <div>
-              <label class="block text-sm text-gray-400 mb-2">Video URL or ID (optional)</label>
+              <label class="block text-sm text-gray-400 mb-2"
+                >Video URL or ID (optional)</label
+              >
               <input
                 type="text"
                 x-model="youtubeUrl"
@@ -790,7 +886,9 @@
                 class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-colors"
                 @keydown.enter="playYoutubeVideo()"
               />
-              <p class="text-xs text-gray-500 mt-2">Leave empty to just open YouTube app</p>
+              <p class="text-xs text-gray-500 mt-2">
+                Leave empty to just open YouTube app
+              </p>
             </div>
             <div class="flex gap-3 justify-end">
               <button
@@ -827,14 +925,26 @@
         aria-modal="true"
         aria-labelledby="task-modal-title"
       >
-        <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+        <div
+          class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col"
+        >
           <!-- Modal Header -->
-          <div class="p-6 border-b border-gray-700 flex items-center justify-between shrink-0">
-            <h3 id="task-modal-title" class="text-lg font-semibold flex items-center gap-2">
+          <div
+            class="p-6 border-b border-gray-700 flex items-center justify-between shrink-0"
+          >
+            <h3
+              id="task-modal-title"
+              class="text-lg font-semibold flex items-center gap-2"
+            >
               <i class="fa-solid fa-bolt text-primary-500"></i>
-              <span x-text="taskModal.mode === 'create' ? 'Create New Task' : 'Edit Task'"></span>
+              <span
+                x-text="taskModal.mode === 'create' ? 'Create New Task' : 'Edit Task'"
+              ></span>
             </h3>
-            <button @click="closeTaskModal()" class="text-gray-400 hover:text-white transition-colors">
+            <button
+              @click="closeTaskModal()"
+              class="text-gray-400 hover:text-white transition-colors"
+            >
               <i class="fa-solid fa-xmark text-xl"></i>
             </button>
           </div>
@@ -843,7 +953,9 @@
           <div class="p-6 space-y-6 overflow-y-auto flex-1">
             <!-- Task Name -->
             <div>
-              <label class="block text-sm font-medium text-gray-400 mb-2">Task Name</label>
+              <label class="block text-sm font-medium text-gray-400 mb-2"
+                >Task Name</label
+              >
               <input
                 type="text"
                 x-model="taskModal.task.name"
@@ -851,43 +963,144 @@
                 class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
                 :class="taskModal.errors.name && 'border-red-500'"
               />
-              <p x-show="taskModal.errors.name" class="text-red-400 text-xs mt-1" x-text="taskModal.errors.name"></p>
+              <p
+                x-show="taskModal.errors.name"
+                class="text-red-400 text-xs mt-1"
+                x-text="taskModal.errors.name"
+              ></p>
             </div>
 
-            <!-- Cron Schedule -->
+            <!-- Schedule Configuration -->
             <div>
-              <label class="block text-sm font-medium text-gray-400 mb-2">Schedule (Cron Expression)</label>
-              <div class="flex gap-2">
-                <input
-                  type="text"
-                  x-model="taskModal.task.schedule"
-                  placeholder="0 0 7 * * *"
-                  class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white font-mono placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
-                  :class="taskModal.errors.schedule && 'border-red-500'"
-                />
-                <select
-                  @change="applyCronPreset($event.target.value)"
-                  class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-300 focus:border-primary-500 outline-none cursor-pointer"
+              <label class="block text-sm font-medium text-gray-400 mb-2"
+                >Schedule</label
+              >
+
+              <!-- Mode Selector -->
+              <div class="flex gap-2 mb-4 bg-gray-800 p-1 rounded-lg">
+                <button
+                  @click="taskModal.scheduleType = 'daily'; taskModal.errors.schedule = null"
+                  :class="taskModal.scheduleType === 'daily' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'"
+                  class="flex-1 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer focus-ring"
                 >
-                  <option value="">Presets...</option>
-                  <option value="0 0 * * * *">Every hour</option>
-                  <option value="0 0 7 * * *">Daily at 7 AM</option>
-                  <option value="0 0 23 * * *">Daily at 11 PM</option>
-                  <option value="0 30 7 * * 1-5">Weekdays 7:30 AM</option>
-                  <option value="0 0 9 * * 0,6">Weekends 9 AM</option>
-                </select>
+                  <i class="fa-solid fa-sun mr-1"></i> Daily
+                </button>
+                <button
+                  @click="taskModal.scheduleType = 'weekly'; taskModal.errors.schedule = null"
+                  :class="taskModal.scheduleType === 'weekly' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'"
+                  class="flex-1 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer focus-ring"
+                >
+                  <i class="fa-solid fa-calendar-week mr-1"></i> Weekly
+                </button>
+                <button
+                  @click="taskModal.scheduleType = 'advanced'; taskModal.errors.schedule = null"
+                  :class="taskModal.scheduleType === 'advanced' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'"
+                  class="flex-1 py-1.5 text-sm font-medium rounded-md transition-all cursor-pointer focus-ring"
+                >
+                  <i class="fa-solid fa-code mr-1"></i> Advanced
+                </button>
               </div>
-              <p x-show="taskModal.errors.schedule" class="text-red-400 text-xs mt-1" x-text="taskModal.errors.schedule"></p>
-              <p x-show="taskModal.task.schedule && !taskModal.errors.schedule" class="text-gray-500 text-xs mt-1" x-text="describeCron(taskModal.task.schedule)"></p>
+
+              <!-- Daily / Weekly Time Input -->
+              <div x-show="taskModal.scheduleType !== 'advanced'" class="mb-4">
+                <label class="block text-sm text-gray-500 mb-1"
+                  >Time of day</label
+                >
+                <input
+                  type="time"
+                  x-model="taskModal.time"
+                  class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none w-full sm:w-auto transition-colors cursor-pointer"
+                />
+              </div>
+
+              <!-- Weekly Days Selection -->
+              <div x-show="taskModal.scheduleType === 'weekly'" class="mb-4">
+                <label class="block text-sm text-gray-500 mb-2"
+                  >Days of week</label
+                >
+                <div class="flex flex-wrap gap-2">
+                  <template
+                    x-for="day in [
+                    {val: '0', label: 'Sun'}, {val: '1', label: 'Mon'}, 
+                    {val: '2', label: 'Tue'}, {val: '3', label: 'Wed'}, 
+                    {val: '4', label: 'Thu'}, {val: '5', label: 'Fri'}, 
+                    {val: '6', label: 'Sat'}
+                  ]"
+                    :key="day.val"
+                  >
+                    <label
+                      class="flex-1 min-w-[3rem] sm:min-w-0 sm:flex-none py-1.5 px-2 rounded border cursor-pointer text-center text-sm font-medium transition-colors"
+                      :class="taskModal.days.includes(day.val) ? 'bg-primary-600/20 border-primary-500 text-primary-400' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'"
+                    >
+                      <input
+                        type="checkbox"
+                        :value="day.val"
+                        x-model="taskModal.days"
+                        class="hidden"
+                      />
+                      <span x-text="day.label"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Advanced Cron Input -->
+              <div x-show="taskModal.scheduleType === 'advanced'" class="mb-4">
+                <label class="block text-sm text-gray-500 mb-1"
+                  >Cron Expression</label
+                >
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    x-model="taskModal.task.schedule"
+                    placeholder="0 0 7 * * *"
+                    class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white font-mono placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+                    :class="taskModal.scheduleType === 'advanced' && taskModal.errors.schedule && 'border-red-500'"
+                  />
+                  <select
+                    @change="applyCronPreset($event.target.value)"
+                    class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-300 focus:border-primary-500 outline-none cursor-pointer"
+                  >
+                    <option value="">Presets...</option>
+                    <option value="0 0 * * * *">Every hour</option>
+                    <option value="0 0 7 * * *">Daily at 7 AM</option>
+                    <option value="0 0 23 * * *">Daily at 11 PM</option>
+                    <option value="0 30 7 * * 1-5">Weekdays 7:30 AM</option>
+                    <option value="0 0 9 * * 0,6">Weekends 9 AM</option>
+                  </select>
+                </div>
+                <p
+                  x-show="taskModal.task.schedule && taskModal.scheduleType === 'advanced'"
+                  class="text-gray-500 text-xs mt-1"
+                  x-text="describeCron(taskModal.task.schedule)"
+                ></p>
+              </div>
+
+              <!-- Validation Error -->
+              <p
+                x-show="taskModal.errors.schedule"
+                class="text-red-400 text-xs mt-1"
+                x-text="taskModal.errors.schedule"
+              ></p>
             </div>
 
             <!-- Actions Builder -->
             <div>
-              <label class="block text-sm font-medium text-gray-400 mb-2">Actions</label>
+              <label class="block text-sm font-medium text-gray-400 mb-2"
+                >Actions</label
+              >
               <div class="space-y-2" x-show="taskModal.task.actions.length > 0">
-                <template x-for="(action, index) in taskModal.task.actions" :key="index">
-                  <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center gap-3">
-                    <span class="text-gray-500 text-sm w-6" x-text="(index + 1) + '.'"></span>
+                <template
+                  x-for="(action, index) in taskModal.task.actions"
+                  :key="index"
+                >
+                  <div
+                    class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center gap-3"
+                  >
+                    <span
+                      class="text-gray-500 text-sm w-6"
+                      x-text="(index + 1) + '.'"
+                    ></span>
                     <select
                       x-model="action.type"
                       @change="resetActionParams(index)"
@@ -931,8 +1144,12 @@
                     </template>
 
                     <!-- Spacer for actions without params -->
-                    <template x-if="action.type === 'wake' || action.type === 'shutdown'">
-                      <span class="flex-1 text-gray-500 text-sm italic">No parameters</span>
+                    <template
+                      x-if="action.type === 'wake' || action.type === 'shutdown'"
+                    >
+                      <span class="flex-1 text-gray-500 text-sm italic"
+                        >No parameters</span
+                      >
                     </template>
 
                     <!-- Reorder buttons -->
@@ -964,7 +1181,11 @@
                 </template>
               </div>
 
-              <p x-show="taskModal.errors.actions" class="text-red-400 text-xs mt-1" x-text="taskModal.errors.actions"></p>
+              <p
+                x-show="taskModal.errors.actions"
+                class="text-red-400 text-xs mt-1"
+                x-text="taskModal.errors.actions"
+              ></p>
 
               <!-- Add Action Button -->
               <button
@@ -978,7 +1199,9 @@
           </div>
 
           <!-- Modal Footer -->
-          <div class="p-6 border-t border-gray-700 flex justify-end gap-3 shrink-0">
+          <div
+            class="p-6 border-t border-gray-700 flex justify-end gap-3 shrink-0"
+          >
             <button
               @click="closeTaskModal()"
               class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
@@ -990,8 +1213,12 @@
               :disabled="taskModal.saving"
               class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
             >
-              <i :class="taskModal.saving ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-check'"></i>
-              <span x-text="taskModal.saving ? 'Saving...' : 'Save Task'"></span>
+              <i
+                :class="taskModal.saving ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-check'"
+              ></i>
+              <span
+                x-text="taskModal.saving ? 'Saving...' : 'Save Task'"
+              ></span>
             </button>
           </div>
         </div>
@@ -1012,15 +1239,23 @@
         role="dialog"
         aria-modal="true"
       >
-        <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <div
+          class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md shadow-2xl"
+        >
           <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+            <div
+              class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center"
+            >
               <i class="fa-solid fa-trash text-red-400"></i>
             </div>
             <h3 class="text-lg font-semibold">Delete Task</h3>
           </div>
           <p class="text-gray-400 mb-6">
-            Are you sure you want to delete "<span class="text-white font-medium" x-text="deleteConfirm.taskName"></span>"? This action cannot be undone.
+            Are you sure you want to delete "<span
+              class="text-white font-medium"
+              x-text="deleteConfirm.taskName"
+            ></span
+            >"? This action cannot be undone.
           </p>
           <div class="flex gap-3 justify-end">
             <button
@@ -1034,8 +1269,12 @@
               :disabled="deleteConfirm.deleting"
               class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors flex items-center gap-2"
             >
-              <i :class="deleteConfirm.deleting ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-trash'"></i>
-              <span x-text="deleteConfirm.deleting ? 'Deleting...' : 'Delete'"></span>
+              <i
+                :class="deleteConfirm.deleting ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-trash'"
+              ></i>
+              <span
+                x-text="deleteConfirm.deleting ? 'Deleting...' : 'Delete'"
+              ></span>
             </button>
           </div>
         </div>

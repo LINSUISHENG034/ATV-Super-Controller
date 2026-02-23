@@ -44,7 +44,9 @@ describe('API Routes', () => {
     app = {
       get: vi.fn((path, handler) => routes['GET ' + path] = handler),
       post: vi.fn((path, handler) => routes['POST ' + path] = handler),
-      patch: vi.fn((path, handler) => routes['PATCH ' + path] = handler)
+      patch: vi.fn((path, handler) => routes['PATCH ' + path] = handler),
+      put: vi.fn((path, handler) => routes['PUT ' + path] = handler),
+      delete: vi.fn((path, handler) => routes['DELETE ' + path] = handler)
     };
     
     // reset mocks
