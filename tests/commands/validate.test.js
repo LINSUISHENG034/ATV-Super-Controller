@@ -9,7 +9,7 @@ describe('validate command', () => {
   describe('valid configuration', () => {
     it('should exit 0 for valid config', () => {
       const output = execSync(
-        'node src/index.js validate --config config.example.json',
+        'node src/index.js validate --config config/config.example.json',
         { encoding: 'utf8' }
       );
       expect(output).toContain('Configuration is valid');
@@ -17,7 +17,7 @@ describe('validate command', () => {
 
     it('should display device info for valid config', () => {
       const output = execSync(
-        'node src/index.js validate --config config.example.json',
+        'node src/index.js validate --config config/config.example.json',
         { encoding: 'utf8' }
       );
       expect(output).toContain('Device: 192.168.1.100:5555');

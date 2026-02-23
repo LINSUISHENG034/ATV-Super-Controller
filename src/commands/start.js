@@ -5,6 +5,7 @@ import { loadConfig } from '../utils/config.js';
 import { connect, disconnect, getDevice, startHealthCheck, stopHealthCheck, reconnect, stopReconnect } from '../services/adb-client.js';
 import { startScheduler, stopScheduler, recordExecution } from '../services/scheduler.js';
 import { executeTask, setActionContext } from '../services/executor.js';
+import { initMqtt, stopMqtt } from '../services/mqtt.js';
 import { logger } from '../utils/logger.js';
 import { WebServer } from '../web/server.js';
 
@@ -26,6 +27,7 @@ async function gracefulShutdown(signal) {
   stopHealthCheck();
   stopReconnect();
   stopScheduler();
+  await stopMqtt();
   await disconnect();
 
   logger.info('Scheduler stopped');
@@ -90,6 +92,11 @@ export async function startCommand(options = {}) {
 
     // Start scheduler with all tasks
     const schedulerResult = startScheduler(config.tasks || [], executor);
+
+    // Init MQTT service if configured
+    if (config.mqtt) {
+      initMqtt(config, executor);
+    }
 
     logger.info(`Scheduler started with ${schedulerResult.taskCount} tasks`);
 

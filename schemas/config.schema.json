@@ -21,6 +21,25 @@
       "type": "array",
       "items": { "$ref": "#/definitions/task" }
     },
+    "mqtt": {
+      "type": "object",
+      "description": "Optional: MQTT configuration for Home Assistant Auto-Discovery",
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "url": { 
+          "type": "string",
+          "description": "MQTT broker URL (e.g., mqtt://192.168.1.100:1883)"
+        },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "topic_prefix": { 
+          "type": "string",
+          "default": "homeassistant"
+        }
+      },
+      "required": ["url"]
+    },
     "youtube": {
       "type": "object",
       "description": "Optional: Custom YouTube client configuration (e.g., SmartTube)",

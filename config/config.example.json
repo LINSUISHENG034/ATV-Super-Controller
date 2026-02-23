@@ -5,6 +5,13 @@
     "ip": "192.168.1.100",
     "port": 5555
   },
+  "mqtt": {
+    "_comment": "Optional: Home Assistant MQTT Auto-Discovery configuration",
+    "url": "mqtt://192.168.1.100:1883",
+    "username": "ha_user",
+    "password": "ha_password",
+    "topic_prefix": "homeassistant"
+  },
   "tasks": [
     {
       "_comment": "Example task: Morning routine with all action types demonstrated",

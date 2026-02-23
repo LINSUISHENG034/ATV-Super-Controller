@@ -42,6 +42,26 @@ describe('validateConfig', () => {
       const result = validateConfig(config);
       expect(result.valid).toBe(true);
     });
+
+    it('should pass validation for config with valid mqtt block', () => {
+      const config = {
+        device: { ip: '192.168.1.1', port: 5555 },
+        mqtt: {
+          url: 'mqtt://localhost:1883',
+          username: 'user',
+          password: 'password',
+          topic_prefix: 'homeassistant'
+        },
+        tasks: [{
+          name: 'test-task',
+          schedule: '0 0 * * *',
+          actions: [{ type: 'wake' }]
+        }]
+      };
+      const result = validateConfig(config);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toEqual([]);
+    });
   });
 
   describe('missing required fields', () => {

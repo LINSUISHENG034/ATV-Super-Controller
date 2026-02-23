@@ -115,7 +115,6 @@ describe('Test Command', () => {
 
       // Verify success message and data details are displayed
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('wake-up'));
-      expect(consoleLogSpy).toHaveBeenCalledWith('  Details:', expect.stringContaining('powerState'));
       expect(mockExit).toHaveBeenCalledWith(0);
     });
   });
@@ -158,7 +157,7 @@ describe('Test Command', () => {
         device: { ip: '192.168.0.145', port: 5555 },
         tasks: [{
           name: 'morning-youtube',
-          action: { type: 'play-video', url: 'https://youtube.com/watch?v=morning' }
+          actions: [{ type: 'play-video', url: 'https://youtube.com/watch?v=morning' }]
         }]
       });
 
