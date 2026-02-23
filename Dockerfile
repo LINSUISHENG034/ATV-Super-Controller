@@ -21,7 +21,7 @@ LABEL description="ATV-Super-Controller - Android TV scheduler and controller fo
 
 # Install ADB tools for Android TV communication
 # Required by @devicefarmer/adbkit to connect to ADB server
-RUN apk add --no-cache android-tools
+RUN apk add --no-cache android-tools tzdata
 
 # Add non-root user for security
 # NOTE: When mounting config volume, ensure host directory is readable by UID 1001

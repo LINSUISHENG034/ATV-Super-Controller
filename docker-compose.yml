@@ -9,6 +9,7 @@ services:
       - "3000:3000"
 
     environment:
+      - TZ=${TZ:-Asia/Shanghai}
       - ATV_DEVICE_IP=${ATV_DEVICE_IP}
       - ATV_DEVICE_PORT=${ATV_DEVICE_PORT:-5555}
       - ATV_LOG_LEVEL=${ATV_LOG_LEVEL:-info}
