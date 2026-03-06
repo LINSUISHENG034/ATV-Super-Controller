@@ -2,6 +2,11 @@
  * REST API Routes
  * Defines all API endpoints for the Web UI
  */
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
+import AdbKit from '@devicefarmer/adbkit';
+import multer from 'multer';
 import { getDeviceStatus, getDevice, connect, reconnect, captureScreen } from '../../services/adb-client.js';
 import { getSchedulerStatus, getJobs, setTaskEnabled, getTaskDetails, addTask, updateTaskConfig, removeTask } from '../../services/scheduler.js';
 import { executeAction, executeTask, getActivityLog, getActionContext } from '../../services/executor.js';
@@ -9,6 +14,8 @@ import { getRecentLogs } from '../../utils/logger.js';
 import { addTask as addTaskToConfig, updateTask as updateTaskInConfig, deleteTask as deleteTaskFromConfig } from '../../services/config-persistence.js';
 import { validateCronExpression } from '../../utils/cron-validator.js';
 import { listActions, getAction } from '../../actions/index.js';
+import { listInstalledApps, getAppApkPath } from '../../services/app-manager.js';
+import { shellQuote, isValidPackageName } from '../../utils/shell.js';
 import { createRequire } from 'module';
 
 // Use createRequire to import package.json (synchronous but at module load time)
@@ -17,6 +24,122 @@ const packageJson = require('../../../package.json');
 
 // Track service start time
 let serviceStartTime = Date.now();
+
+const APK_EXTENSION_PATTERN = /\.apk$/i;
+
+const upload = multer({
+  dest: os.tmpdir(),
+  limits: {
+    fileSize: 1024 * 1024 * 1024 // 1GB
+  }
+});
+
+/**
+ * Validate and decode package route parameter
+ */
+function parsePackageParam(rawValue) {
+  const packageName = decodeURIComponent(rawValue || '');
+  if (!isValidPackageName(packageName)) {
+    const error = new Error('Invalid package name');
+    error.code = 'INVALID_PACKAGE';
+    throw error;
+  }
+  return packageName;
+}
+
+/**
+ * Get connected device or return a consistent API error
+ * @param {object} res - Express response
+ * @returns {object|null} Device when connected, else null
+ */
+function getDeviceOrRespond(res) {
+  const device = getDevice();
+  if (!device) {
+    res.status(503).json({
+      success: false,
+      error: {
+        code: 'DEVICE_DISCONNECTED',
+        message: 'No device connected'
+      }
+    });
+    return null;
+  }
+  return device;
+}
+
+/**
+ * Execute an action module directly to preserve action-level payloads
+ * @param {object} device - Connected device
+ * @param {string} type - Registered action name
+ * @param {object} params - Action params
+ * @returns {Promise<object>} Action result
+ */
+async function executeRegisteredAction(device, type, params = {}) {
+  const action = getAction(type);
+  if (!action) {
+    const error = new Error(`Unknown action type: ${type}`);
+    error.code = 'UNKNOWN_ACTION';
+    throw error;
+  }
+  return action.execute(device, { type, ...params }, getActionContext());
+}
+
+/**
+ * Await completion of an adb push/pull transfer
+ * @param {object} transfer - adbkit transfer stream
+ * @returns {Promise<void>}
+ */
+function waitForTransfer(transfer) {
+  return new Promise((resolve, reject) => {
+    transfer.on('end', resolve);
+    transfer.on('error', reject);
+  });
+}
+
+/**
+ * Run multer single-file middleware within async route handlers
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @returns {Promise<void>}
+ */
+function runApkUpload(req, res) {
+  return new Promise((resolve, reject) => {
+    upload.single('apk')(req, res, (error) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Parse package names from `pm list packages -3`
+ * @param {string} output - Command output
+ * @returns {Set<string>} Parsed package names
+ */
+function parsePackageSet(output) {
+  return new Set(
+    output
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line.startsWith('package:'))
+      .map(line => line.slice('package:'.length).trim())
+      .filter(Boolean)
+  );
+}
+
+/**
+ * Get third-party package set for install-diff detection
+ * @param {object} device - Connected device
+ * @returns {Promise<Set<string>>} Current package set
+ */
+async function readThirdPartyPackages(device) {
+  const stream = await device.shell('pm list packages -3');
+  const output = (await AdbKit.Adb.util.readAll(stream)).toString().trim();
+  return parsePackageSet(output);
+}
 
 /**
  * Register API routes
@@ -373,6 +496,395 @@ export function registerApiRoutes(app) {
     }
   });
 
+  // --- App Manager Endpoints ---
+
+  /**
+   * GET /api/v1/apps
+   * List installed third-party apps with metadata
+   */
+  app.get('/api/v1/apps', async (req, res) => {
+    try {
+      const apps = await listInstalledApps();
+      res.json({
+        success: true,
+        data: { apps }
+      });
+    } catch (error) {
+      if (error.code === 'DEVICE_NOT_CONNECTED') {
+        return res.status(503).json({
+          success: false,
+          error: {
+            code: 'DEVICE_DISCONNECTED',
+            message: 'No device connected'
+          }
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'APPS_LIST_ERROR',
+          message: 'Failed to list installed apps',
+          details: { reason: error.message }
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/apps/install
+   * Upload and install an APK
+   */
+  app.post('/api/v1/apps/install', async (req, res) => {
+    // Extend timeout for large APK uploads (10 minutes)
+    req.setTimeout(600000);
+    res.setTimeout(600000);
+
+    const device = getDeviceOrRespond(res);
+    if (!device) {
+      return;
+    }
+
+    let localPath;
+    let remotePath;
+    let beforePackages = new Set();
+
+    try {
+      await runApkUpload(req, res);
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'APK_REQUIRED',
+            message: 'APK file is required (multipart field: apk)'
+          }
+        });
+      }
+
+      localPath = req.file.path;
+      const originalName = req.file.originalname || '';
+      if (!APK_EXTENSION_PATTERN.test(originalName)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_FILE_TYPE',
+            message: 'Only .apk files are supported'
+          }
+        });
+      }
+
+      const safeBaseName = path.basename(req.file.filename).replace(/[^A-Za-z0-9._-]/g, '');
+      remotePath = `/data/local/tmp/${safeBaseName}.apk`;
+
+      // Check available storage space
+      const fileSize = req.file.size;
+      const dfStream = await device.shell('df /data/local/tmp | tail -1');
+      const dfOutput = (await AdbKit.Adb.util.readAll(dfStream)).toString();
+      const dfMatch = dfOutput.match(/\s+(\d+)\s+\d+%/);
+      if (dfMatch) {
+        const availableKb = parseInt(dfMatch[1], 10);
+        const requiredKb = Math.ceil(fileSize / 1024) + 1024; // Add 1MB buffer
+        if (availableKb < requiredKb) {
+          return res.status(507).json({
+            success: false,
+            error: {
+              code: 'INSUFFICIENT_STORAGE',
+              message: 'Not enough storage space on device',
+              details: { available: availableKb * 1024, required: fileSize }
+            }
+          });
+        }
+      }
+
+      try {
+        beforePackages = await readThirdPartyPackages(device);
+      } catch (error) {
+        beforePackages = new Set();
+      }
+
+      const pushTransfer = await device.push(localPath, remotePath);
+      await waitForTransfer(pushTransfer);
+
+      const installResult = await executeRegisteredAction(device, 'install-app', { apkPath: remotePath });
+      if (!installResult.success) {
+        return res.status(500).json({
+          success: false,
+          error: installResult.error
+        });
+      }
+
+      let detectedPackage = null;
+      try {
+        const afterPackages = await readThirdPartyPackages(device);
+        detectedPackage = Array.from(afterPackages).find(name => !beforePackages.has(name)) || null;
+      } catch (error) {
+        detectedPackage = null;
+      }
+
+      res.status(201).json({
+        success: true,
+        data: {
+          status: 'installed',
+          package: detectedPackage,
+          details: installResult.data || {}
+        }
+      });
+    } catch (error) {
+      const code = error.code === 'LIMIT_FILE_SIZE' ? 413 : 500;
+      res.status(code).json({
+        success: false,
+        error: {
+          code: code === 413 ? 'FILE_TOO_LARGE' : 'APP_INSTALL_ERROR',
+          message: code === 413 ? 'APK file exceeds upload limit' : 'Failed to install APK',
+          details: { reason: error.message }
+        }
+      });
+    } finally {
+      if (remotePath) {
+        try {
+          const stream = await device.shell(`rm -f ${shellQuote(remotePath)}`);
+          await AdbKit.Adb.util.readAll(stream);
+        } catch (cleanupError) {
+          // Ignore cleanup failures to avoid masking install result
+        }
+      }
+      if (localPath) {
+        await fs.unlink(localPath).catch(() => {});
+      }
+    }
+  });
+
+  /**
+   * POST /api/v1/apps/:pkg/launch
+   * Launch app using existing launch-app action
+   */
+  app.post('/api/v1/apps/:pkg/launch', async (req, res) => {
+    const device = getDeviceOrRespond(res);
+    if (!device) {
+      return;
+    }
+
+    try {
+      const packageName = parsePackageParam(req.params.pkg);
+      const result = await executeRegisteredAction(device, 'launch-app', { package: packageName });
+
+      if (!result.success) {
+        return res.status(500).json({ success: false, error: result.error });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          package: packageName,
+          status: 'launched'
+        }
+      });
+    } catch (error) {
+      const statusCode = error.code === 'INVALID_PACKAGE' ? 400 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: statusCode === 400 ? 'INVALID_PACKAGE' : 'APP_LAUNCH_ERROR',
+          message: statusCode === 400 ? 'Invalid package name' : 'Failed to launch app',
+          details: { reason: error.message }
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/apps/:pkg/stop
+   * Force stop app process
+   */
+  app.post('/api/v1/apps/:pkg/stop', async (req, res) => {
+    const device = getDeviceOrRespond(res);
+    if (!device) {
+      return;
+    }
+
+    try {
+      const packageName = parsePackageParam(req.params.pkg);
+      const result = await executeRegisteredAction(device, 'force-stop', { package: packageName });
+
+      if (!result.success) {
+        return res.status(500).json({ success: false, error: result.error });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          package: packageName,
+          status: 'stopped'
+        }
+      });
+    } catch (error) {
+      const statusCode = error.code === 'INVALID_PACKAGE' ? 400 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: statusCode === 400 ? 'INVALID_PACKAGE' : 'APP_STOP_ERROR',
+          message: statusCode === 400 ? 'Invalid package name' : 'Failed to stop app',
+          details: { reason: error.message }
+        }
+      });
+    }
+  });
+
+  /**
+   * POST /api/v1/apps/:pkg/clear
+   * Clear app cache/data
+   */
+  app.post('/api/v1/apps/:pkg/clear', async (req, res) => {
+    const device = getDeviceOrRespond(res);
+    if (!device) {
+      return;
+    }
+
+    try {
+      const packageName = parsePackageParam(req.params.pkg);
+      const result = await executeRegisteredAction(device, 'clear-cache', { package: packageName });
+
+      if (!result.success) {
+        return res.status(500).json({ success: false, error: result.error });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          package: packageName,
+          status: 'cleared'
+        }
+      });
+    } catch (error) {
+      const statusCode = error.code === 'INVALID_PACKAGE' ? 400 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: statusCode === 400 ? 'INVALID_PACKAGE' : 'APP_CLEAR_ERROR',
+          message: statusCode === 400 ? 'Invalid package name' : 'Failed to clear app cache',
+          details: { reason: error.message }
+        }
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/v1/apps/:pkg
+   * Uninstall an app package
+   */
+  app.delete('/api/v1/apps/:pkg', async (req, res) => {
+    const device = getDeviceOrRespond(res);
+    if (!device) {
+      return;
+    }
+
+    try {
+      const packageName = parsePackageParam(req.params.pkg);
+      const result = await executeRegisteredAction(device, 'uninstall-app', { package: packageName });
+
+      if (!result.success) {
+        return res.status(500).json({ success: false, error: result.error });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          package: packageName,
+          status: 'uninstalled'
+        }
+      });
+    } catch (error) {
+      const statusCode = error.code === 'INVALID_PACKAGE' ? 400 : 500;
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: statusCode === 400 ? 'INVALID_PACKAGE' : 'APP_UNINSTALL_ERROR',
+          message: statusCode === 400 ? 'Invalid package name' : 'Failed to uninstall app',
+          details: { reason: error.message }
+        }
+      });
+    }
+  });
+
+  /**
+   * GET /api/v1/apps/:pkg/pull
+   * Download installed APK
+   */
+  app.get('/api/v1/apps/:pkg/pull', async (req, res) => {
+    const device = getDeviceOrRespond(res);
+    if (!device) {
+      return;
+    }
+
+    try {
+      const packageName = parsePackageParam(req.params.pkg);
+      const apkPath = await getAppApkPath(packageName);
+      const stream = await device.pull(apkPath);
+      const downloadName = `${packageName}.apk`;
+
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+      res.setHeader('X-Download-Warning', 'verify-file-integrity');
+
+      stream.on('error', (error) => {
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            error: {
+              code: 'APK_PULL_ERROR',
+              message: 'Failed to pull APK',
+              details: { reason: error.message }
+            }
+          });
+          return;
+        }
+        // Destroy response to signal incomplete download to client
+        res.destroy();
+      });
+
+      stream.pipe(res);
+    } catch (error) {
+      if (error.code === 'INVALID_PACKAGE') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_PACKAGE',
+            message: 'Invalid package name'
+          }
+        });
+      }
+
+      if (error.code === 'PACKAGE_NOT_FOUND') {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'PACKAGE_NOT_FOUND',
+            message: error.message
+          }
+        });
+      }
+
+      if (error.code === 'DEVICE_NOT_CONNECTED') {
+        return res.status(503).json({
+          success: false,
+          error: {
+            code: 'DEVICE_DISCONNECTED',
+            message: 'No device connected'
+          }
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'APK_PULL_ERROR',
+          message: 'Failed to pull APK',
+          details: { reason: error.message }
+        }
+      });
+    }
+  });
+
   /**
    * POST /api/v1/tasks/:name/run
    * Run a task immediately
@@ -504,6 +1016,10 @@ export function registerApiRoutes(app) {
             { name: 'package', type: 'string', required: true, label: 'Package Name' },
             { name: 'activity', type: 'string', required: false, label: 'Activity (optional)' }
           ]},
+          'force-stop': { type: 'force-stop', params: [{ name: 'package', type: 'string', required: true, label: 'Package Name' }] },
+          'clear-cache': { type: 'clear-cache', params: [{ name: 'package', type: 'string', required: true, label: 'Package Name' }] },
+          'install-app': { type: 'install-app', params: [{ name: 'apkPath', type: 'string', required: true, label: 'APK Path' }] },
+          'uninstall-app': { type: 'uninstall-app', params: [{ name: 'package', type: 'string', required: true, label: 'Package Name' }] },
           'shutdown': { type: 'shutdown', params: [] },
           'prevent-adb-timeout': { type: 'prevent-adb-timeout', params: [] }
         };

@@ -79,6 +79,10 @@
         { "$ref": "#/definitions/waitAction" },
         { "$ref": "#/definitions/playVideoAction" },
         { "$ref": "#/definitions/launchAppAction" },
+        { "$ref": "#/definitions/forceStopAction" },
+        { "$ref": "#/definitions/clearCacheAction" },
+        { "$ref": "#/definitions/installAppAction" },
+        { "$ref": "#/definitions/uninstallAppAction" },
         { "$ref": "#/definitions/shutdownAction" }
       ]
     },
@@ -129,6 +133,46 @@
       "properties": {
         "_comment": { "type": "string" },
         "type": { "const": "shutdown" }
+      }
+    },
+    "forceStopAction": {
+      "type": "object",
+      "required": ["type", "package"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "force-stop" },
+        "package": { "type": "string" }
+      }
+    },
+    "clearCacheAction": {
+      "type": "object",
+      "required": ["type", "package"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "clear-cache" },
+        "package": { "type": "string" }
+      }
+    },
+    "installAppAction": {
+      "type": "object",
+      "required": ["type", "apkPath"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "install-app" },
+        "apkPath": { "type": "string" }
+      }
+    },
+    "uninstallAppAction": {
+      "type": "object",
+      "required": ["type", "package"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "string" },
+        "type": { "const": "uninstall-app" },
+        "package": { "type": "string" }
       }
     }
   }

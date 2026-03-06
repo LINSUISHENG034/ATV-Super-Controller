@@ -9,6 +9,10 @@ import { shutdownAction } from './shutdown.js';
 import { wakeUpAction } from './wake-up.js';
 import { waitAction } from './wait.js';
 import { preventAdbTimeoutAction } from './prevent-adb-timeout.js';
+import { installAppAction } from './install-app.js';
+import { uninstallAppAction } from './uninstall-app.js';
+import { forceStopAction } from './force-stop.js';
+import { clearCacheAction } from './clear-cache.js';
 
 const actionRegistry = new Map();
 
@@ -48,5 +52,9 @@ registerAction(playVideoAction);
 registerAction(shutdownAction);
 registerAction(waitAction);
 registerAction(preventAdbTimeoutAction);
+registerAction(installAppAction);
+registerAction(uninstallAppAction);
+registerAction(forceStopAction);
+registerAction(clearCacheAction);
 
 export { registerAction, getAction, listActions };

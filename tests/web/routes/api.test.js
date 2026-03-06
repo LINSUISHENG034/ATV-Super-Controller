@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { registerApiRoutes } from '../../../src/web/routes/api.js';
 
+const mockActions = {};
+
 // Mock dependencies
 vi.mock('../../../src/services/adb-client.js', () => ({
   getDeviceStatus: vi.fn(() => ({ connected: true })),
   connect: vi.fn(),
   reconnect: vi.fn(),
-  getDevice: vi.fn(() => ({ shell: vi.fn() })) 
+  captureScreen: vi.fn(),
+  getDevice: vi.fn(() => ({
+    shell: vi.fn(),
+    push: vi.fn(),
+    pull: vi.fn()
+  }))
 }));
 
 vi.mock('../../../src/services/scheduler.js', () => ({
@@ -17,6 +24,13 @@ vi.mock('../../../src/services/scheduler.js', () => ({
 }));
 
 vi.mock('../../../src/actions/index.js', () => ({
+  listActions: vi.fn(() => Object.keys(mockActions)),
+  getAction: vi.fn((type) => mockActions[type])
+}));
+
+vi.mock('../../../src/services/app-manager.js', () => ({
+  listInstalledApps: vi.fn(() => []),
+  getAppApkPath: vi.fn(() => '/data/app/test/base.apk')
 }));
 
 vi.mock('../../../src/services/executor.js', () => ({
@@ -40,6 +54,13 @@ describe('API Routes', () => {
   let routes = {};
 
   beforeEach(async () => {
+    Object.keys(mockActions).forEach(key => delete mockActions[key]);
+    mockActions.wake = { name: 'wake', execute: vi.fn().mockResolvedValue({ success: true }) };
+    mockActions['launch-app'] = { name: 'launch-app', execute: vi.fn().mockResolvedValue({ success: true }) };
+    mockActions['force-stop'] = { name: 'force-stop', execute: vi.fn().mockResolvedValue({ success: true }) };
+    mockActions['clear-cache'] = { name: 'clear-cache', execute: vi.fn().mockResolvedValue({ success: true }) };
+    mockActions['uninstall-app'] = { name: 'uninstall-app', execute: vi.fn().mockResolvedValue({ success: true }) };
+
     routes = {};
     app = {
       get: vi.fn((path, handler) => routes['GET ' + path] = handler),
@@ -66,7 +87,10 @@ describe('API Routes', () => {
     const req = { body, params, query };
     const res = {
       json: vi.fn(),
-      status: vi.fn().mockReturnThis()
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+      headersSent: false
     };
     await handler(req, res);
     return res;
@@ -566,6 +590,103 @@ describe('API Routes', () => {
                   }));
               }
           });
+      });
+  });
+
+  describe('App Manager', () => {
+      it('should return installed apps list', async () => {
+          const { listInstalledApps } = await import('../../../src/services/app-manager.js');
+          listInstalledApps.mockResolvedValue([
+              { package: 'com.test.app', name: 'Test App', version: '1.0.0', size: 1024, path: '/data/app/test/base.apk' }
+          ]);
+
+          const res = await request('GET', '/api/v1/apps');
+          expect(res).not.toBeNull();
+          expect(listInstalledApps).toHaveBeenCalled();
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+              success: true,
+              data: expect.objectContaining({
+                  apps: expect.any(Array)
+              })
+          }));
+      });
+
+      it('should register POST /api/v1/apps/install endpoint', () => {
+          expect(app.post).toHaveBeenCalledWith('/api/v1/apps/install', expect.any(Function));
+      });
+
+      it('should return DEVICE_DISCONNECTED when installing without device', async () => {
+          const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+          getDevice.mockReturnValue(null);
+
+          const handler = routes['POST /api/v1/apps/install'];
+          const req = { setTimeout: vi.fn() };
+          const res = {
+              setTimeout: vi.fn(),
+              status: vi.fn().mockReturnThis(),
+              json: vi.fn()
+          };
+
+          await handler(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(503);
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+              success: false,
+              error: expect.objectContaining({ code: 'DEVICE_DISCONNECTED' })
+          }));
+      });
+
+      it('should force-stop an app package', async () => {
+          const { getAction } = await import('../../../src/actions/index.js');
+          const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+          getDevice.mockReturnValue({ shell: vi.fn() });
+
+          const res = await request('POST', '/api/v1/apps/:pkg/stop', {}, { pkg: 'com.test.app' });
+          expect(res).not.toBeNull();
+
+          expect(getAction).toHaveBeenCalledWith('force-stop');
+          expect(mockActions['force-stop'].execute).toHaveBeenCalledWith(
+              expect.anything(),
+              expect.objectContaining({ package: 'com.test.app' }),
+              expect.any(Object)
+          );
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+              success: true,
+              data: expect.objectContaining({ status: 'stopped' })
+          }));
+      });
+
+      it('should uninstall an app package', async () => {
+          const { getAction } = await import('../../../src/actions/index.js');
+          const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+          getDevice.mockReturnValue({ shell: vi.fn() });
+
+          const res = await request('DELETE', '/api/v1/apps/:pkg', {}, { pkg: 'com.test.app' });
+          expect(res).not.toBeNull();
+
+          expect(getAction).toHaveBeenCalledWith('uninstall-app');
+          expect(mockActions['uninstall-app'].execute).toHaveBeenCalledWith(
+              expect.anything(),
+              expect.objectContaining({ package: 'com.test.app' }),
+              expect.any(Object)
+          );
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+              success: true,
+              data: expect.objectContaining({ status: 'uninstalled' })
+          }));
+      });
+
+      it('should reject invalid package names for app actions', async () => {
+          const getDevice = (await import('../../../src/services/adb-client.js')).getDevice;
+          getDevice.mockReturnValue({ shell: vi.fn() }); // Ensure device is connected
+
+          const res = await request('POST', '/api/v1/apps/:pkg/launch', {}, { pkg: '../bad' });
+          expect(res).not.toBeNull();
+          expect(res.status).toHaveBeenCalledWith(400);
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+              success: false,
+              error: expect.objectContaining({ code: 'INVALID_PACKAGE' })
+          }));
       });
   });
 

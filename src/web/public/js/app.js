@@ -23,6 +23,14 @@ function appData() {
     serviceUptime: 0,
     showYoutubeModal: false,
     youtubeUrl: "",
+    apps: [],
+    appsLoading: false,
+    appsError: null,
+    appActionPending: {},
+    uploadState: "idle", // idle | uploading | installing | success | error
+    uploadProgress: 0,
+    uploadError: null,
+    dropZoneActive: false,
 
     // Task Modal State
     taskModal: {
@@ -60,6 +68,7 @@ function appData() {
       { id: "dashboard", label: "Dashboard", icon: "fa-solid fa-gauge-high" },
       { id: "tasks", label: "Tasks", icon: "fa-solid fa-list-check" },
       { id: "remote", label: "Remote", icon: "fa-solid fa-gamepad" },
+      { id: "apps", label: "Apps", icon: "fa-solid fa-grid-2" },
       { id: "logs", label: "Logs", icon: "fa-solid fa-terminal" },
     ],
 
@@ -75,7 +84,7 @@ function appData() {
 
       // Refresh status periodically as fallback
       setInterval(() => this.fetchStatus(), 30000);
-      setInterval(() => this.fetchTasks(), 60000); // Refresh tasks every minute
+      setInterval(() => this.fetchTasks(), 60000);
     },
 
     /**
@@ -133,6 +142,45 @@ function appData() {
       } catch (error) {
         console.error("Failed to fetch activity:", error);
       }
+    },
+
+    /**
+     * Fetch installed app list
+     */
+    async fetchApps() {
+      this.appsLoading = true;
+      this.appsError = null;
+
+      try {
+        const res = await fetch("/api/v1/apps");
+        const data = await res.json();
+        if (data.success) {
+          this.apps = data.data.apps || [];
+        } else {
+          this.appsError = data.error?.message || "Failed to fetch apps";
+        }
+      } catch (error) {
+        this.appsError = "Failed to fetch apps";
+      } finally {
+        this.appsLoading = false;
+      }
+    },
+
+    /**
+     * Convert bytes to human-readable string
+     * @param {number} bytes - Raw bytes
+     * @returns {string} Formatted size
+     */
+    formatBytes(bytes) {
+      if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+      const units = ["B", "KB", "MB", "GB"];
+      let value = bytes;
+      let unitIndex = 0;
+      while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex += 1;
+      }
+      return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
     },
 
     /**
@@ -333,6 +381,245 @@ function appData() {
       } catch (error) {
         this.showToast("Reconnect request failed");
       }
+    },
+
+    /**
+     * Handle file input change for APK upload
+     * @param {Event} event - Input change event
+     */
+    handleApkFileSelect(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      this.uploadApk(file);
+      event.target.value = "";
+    },
+
+    /**
+     * Handle drop zone drag enter/over
+     * @param {Event} event - Drag event
+     */
+    onApkDragOver(event) {
+      event.preventDefault();
+      this.dropZoneActive = true;
+    },
+
+    /**
+     * Handle drop zone drag leave
+     */
+    onApkDragLeave() {
+      this.dropZoneActive = false;
+    },
+
+    /**
+     * Handle dropped APK file
+     * @param {Event} event - Drop event
+     */
+    onApkDrop(event) {
+      event.preventDefault();
+      this.dropZoneActive = false;
+      const file = event.dataTransfer?.files?.[0];
+      if (file) {
+        this.uploadApk(file);
+      }
+    },
+
+    /**
+     * Upload APK using XHR for progress tracking
+     * @param {File} file - APK file
+     */
+    uploadApk(file) {
+      if (!file.name.toLowerCase().endsWith(".apk")) {
+        this.uploadState = "error";
+        this.uploadError = "Only .apk files are supported";
+        return;
+      }
+
+      this.uploadState = "uploading";
+      this.uploadProgress = 0;
+      this.uploadError = null;
+
+      const formData = new FormData();
+      formData.append("apk", file, file.name);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/v1/apps/install", true);
+
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const progress = Math.round((event.loaded / event.total) * 100);
+        this.uploadProgress = progress;
+      };
+
+      xhr.upload.onload = () => {
+        this.uploadState = "installing";
+      };
+
+      xhr.onload = async () => {
+        let payload = null;
+        try {
+          payload = JSON.parse(xhr.responseText || "{}");
+        } catch (error) {
+          // ignore malformed response body
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300 && payload?.success) {
+          this.uploadState = "success";
+          this.uploadProgress = 100;
+          this.showToast("APK installed successfully");
+          this.addLog(`APK installed: ${file.name}`, "INFO");
+          await this.fetchApps();
+        } else {
+          this.uploadState = "error";
+          this.uploadError = payload?.error?.message || "APK install failed";
+          this.showToast(`Install failed: ${this.uploadError}`);
+          this.addLog(`APK install failed: ${this.uploadError}`, "ERROR");
+        }
+      };
+
+      xhr.onerror = () => {
+        this.uploadState = "error";
+        this.uploadError = "Network error during upload";
+        this.showToast(this.uploadError);
+      };
+
+      xhr.send(formData);
+    },
+
+    /**
+     * Track in-flight app actions per package+action
+     * @param {string} packageName - Android package name
+     * @param {string} action - Action key
+     * @param {boolean} isPending - Pending status
+     */
+    setAppActionPending(packageName, action, isPending) {
+      this.appActionPending[`${packageName}:${action}`] = isPending;
+    },
+
+    /**
+     * Check if app action is currently running
+     * @param {string} packageName - Android package name
+     * @param {string} action - Action key
+     * @returns {boolean} Pending status
+     */
+    isAppActionPending(packageName, action) {
+      return !!this.appActionPending[`${packageName}:${action}`];
+    },
+
+    /**
+     * Run one of the app manager actions
+     * @param {string} packageName - Android package name
+     * @param {string} action - Action key
+     * @param {string} endpoint - API endpoint
+     * @param {string} method - HTTP method
+     * @param {string} successMessage - User-facing success message
+     * @param {boolean} refreshApps - Whether to refresh app list afterwards
+     */
+    async runAppAction(
+      packageName,
+      action,
+      endpoint,
+      method,
+      successMessage,
+      refreshApps = false,
+    ) {
+      this.setAppActionPending(packageName, action, true);
+
+      try {
+        const res = await fetch(endpoint, { method });
+        const data = await res.json();
+
+        if (data.success) {
+          this.showToast(successMessage);
+          this.addLog(`${action} succeeded: ${packageName}`, "INFO");
+          if (refreshApps) {
+            await this.fetchApps();
+          }
+        } else {
+          const message = data.error?.message || "Request failed";
+          this.showToast(`Error: ${message}`);
+          this.addLog(`${action} failed (${packageName}): ${message}`, "ERROR");
+        }
+      } catch (error) {
+        this.showToast("Network Error");
+        this.addLog(`Network error for ${action} (${packageName})`, "ERROR");
+      } finally {
+        this.setAppActionPending(packageName, action, false);
+      }
+    },
+
+    /**
+     * Launch an installed app
+     * @param {string} packageName - Android package name
+     */
+    async launchInstalledApp(packageName) {
+      await this.runAppAction(
+        packageName,
+        "launch",
+        `/api/v1/apps/${encodeURIComponent(packageName)}/launch`,
+        "POST",
+        "App launched",
+      );
+    },
+
+    /**
+     * Force-stop an installed app
+     * @param {string} packageName - Android package name
+     */
+    async stopInstalledApp(packageName) {
+      await this.runAppAction(
+        packageName,
+        "stop",
+        `/api/v1/apps/${encodeURIComponent(packageName)}/stop`,
+        "POST",
+        "App stopped",
+      );
+    },
+
+    /**
+     * Clear cache/data for an installed app
+     * @param {string} packageName - Android package name
+     */
+    async clearInstalledApp(packageName) {
+      const confirmed = window.confirm(
+        `Clear all data for ${packageName}? This will delete app settings and saved data.`,
+      );
+      if (!confirmed) return;
+
+      await this.runAppAction(
+        packageName,
+        "clear",
+        `/api/v1/apps/${encodeURIComponent(packageName)}/clear`,
+        "POST",
+        "App cache cleared",
+      );
+    },
+
+    /**
+     * Uninstall an installed app after confirmation
+     * @param {string} packageName - Android package name
+     */
+    async uninstallInstalledApp(packageName) {
+      const confirmed = window.confirm(
+        `Uninstall ${packageName}? This action cannot be undone.`,
+      );
+      if (!confirmed) return;
+
+      await this.runAppAction(
+        packageName,
+        "uninstall",
+        `/api/v1/apps/${encodeURIComponent(packageName)}`,
+        "DELETE",
+        "App uninstalled",
+        true,
+      );
+    },
+
+    /**
+     * Download APK for an installed app
+     * @param {string} packageName - Android package name
+     */
+    downloadInstalledApp(packageName) {
+      window.open(`/api/v1/apps/${encodeURIComponent(packageName)}/pull`, "_blank");
     },
 
     /**
@@ -1046,6 +1333,8 @@ function appData() {
       if (type === "wait") action.duration = 5000;
       if (type === "play-video") action.url = "";
       if (type === "launch-app") action.package = "";
+      if (type === "force-stop") action.package = "";
+      if (type === "clear-cache") action.package = "";
     },
 
     /**
