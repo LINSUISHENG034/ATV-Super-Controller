@@ -28,7 +28,10 @@
   2. Probe samples ADB connectivity and normalized power state at each interval and stores results in SQLite
   3. User can print a formatted run report from SQLite via `probe-report` CLI command
   4. Probe runs in Docker via a dedicated compose profile without touching the scheduler service
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — Verify probe test suite passes and fill coverage gaps
+- [ ] 02-02-PLAN.md — Stage and commit all probe files, push to origin/main
 **UI hint**: no
 
 ## Progress Table
@@ -36,4 +39,4 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Platform | - | Done | 2026-05-04 |
-| 2. Keepalive Probe | 0/1 | Not started | - |
+| 2. Keepalive Probe | 0/2 | Not started | - |
