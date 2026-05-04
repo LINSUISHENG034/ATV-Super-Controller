@@ -51,5 +51,8 @@ build/
 # Test coverage
 coverage/
 
+# sql.js in-memory test artifact
+:memory:
+
 # Init scripts (user-specific)
 init/
