@@ -112,6 +112,24 @@ src/
 └── utils/        # Utilities (Logger, Config)
 ```
 
+
+## 🔬 Keepalive Probe
+
+Use the Docker-based probe to verify whether a read-only keepalive pattern keeps ADB connected **without waking the TV screen**.
+
+```bash
+# Run a 6-hour experiment with 30-second sampling
+docker compose --profile probe run --rm atv-keepalive-probe \
+  probe-keepalive \
+  --duration-ms 21600000 \
+  --interval-ms 30000
+
+# Print the latest run report
+docker compose --profile probe run --rm atv-keepalive-probe probe-report
+```
+
+Detailed usage lives in `docs/experiments/keepalive-probe.md`.
+
 ## 🧪 Testing
 
 ```bash

@@ -28,3 +28,31 @@ services:
       timeout: 10s
       start_period: 10s
       retries: 3
+    
+    networks:
+      - 1panel-network
+
+
+  atv-keepalive-probe:
+    image: atv-super-controller:latest
+    profiles:
+      - probe
+    command: ["probe-keepalive"]
+
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - ATV_DEVICE_IP=${ATV_DEVICE_IP}
+      - ATV_DEVICE_PORT=${ATV_DEVICE_PORT:-5555}
+      - ATV_LOG_LEVEL=${ATV_LOG_LEVEL:-info}
+
+    volumes:
+      - ./config:/app/config
+      - ./adb-keys:/home/atvuser/.android
+      - ./probe-data:/app/probe-data
+
+    networks:
+      - 1panel-network
+
+networks:
+    1panel-network:
+        external: true

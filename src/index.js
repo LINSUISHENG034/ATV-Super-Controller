@@ -5,6 +5,8 @@ import { startCommand } from './commands/start.js';
 import { statusCommand } from './commands/status.js';
 import { testCommand } from './commands/test.js';
 import { validateCommand } from './commands/validate.js';
+import { probeKeepaliveCommand } from './commands/probe-keepalive.js';
+import { probeReportCommand } from './commands/probe-report.js';
 
 logger.debug('CLI initializing');
 
@@ -42,5 +44,24 @@ program
   .description('Validate configuration file')
   .option('-c, --config <path>', 'Path to config file')
   .action(validateCommand);
+
+program
+  .command('probe-keepalive')
+  .description('Run a bounded keepalive experiment and persist evidence')
+  .option('--target <target>', 'ADB target in ip:port format')
+  .option('--ip <ip>', 'Device IP override')
+  .option('--port <port>', 'Device port override')
+  .option('--interval-ms <ms>', 'Sampling interval in milliseconds', Number)
+  .option('--duration-ms <ms>', 'Total duration in milliseconds', Number)
+  .option('--db-path <path>', 'SQLite output path')
+  .option('--command <command>', 'Read-only shell probe command')
+  .action(probeKeepaliveCommand);
+
+program
+  .command('probe-report')
+  .description('Print a keepalive experiment report from SQLite')
+  .option('--run-id <id>', 'Specific run id to report', Number)
+  .option('--db-path <path>', 'SQLite output path')
+  .action(probeReportCommand);
 
 program.parse(process.argv);

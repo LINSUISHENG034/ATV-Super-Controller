@@ -42,9 +42,9 @@ COPY --chown=atvuser:atvuser package.json package-lock.json ./
 COPY --chown=atvuser:atvuser src/ ./src/
 COPY --chown=atvuser:atvuser schemas/ ./schemas/
 
-# Create directory for runtime config (will be mounted as volume)
-RUN mkdir -p /app/config && \
-    chown -R atvuser:atvuser /app/config
+# Create directories for runtime volumes
+RUN mkdir -p /app/config /app/probe-data && \
+    chown -R atvuser:atvuser /app/config /app/probe-data
 
 # Create ADB keys directory for persistent device authentication
 RUN mkdir -p /home/atvuser/.android && \
